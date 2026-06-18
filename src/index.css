@@ -1,0 +1,91 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1;
+    border-radius: 3px;
+  }
+}
+
+/* Markdown rendering in chat */
+.prose-chat h1,
+.prose-chat h2,
+.prose-chat h3 {
+  @apply font-semibold text-gray-900 mt-4 mb-2;
+}
+.prose-chat h1 { @apply text-xl; }
+.prose-chat h2 { @apply text-lg; }
+.prose-chat h3 { @apply text-base; }
+
+.prose-chat p {
+  @apply mb-3 text-gray-800 leading-relaxed;
+}
+
+.prose-chat ul,
+.prose-chat ol {
+  @apply mb-3 pl-5;
+}
+
+.prose-chat ul { @apply list-disc; }
+.prose-chat ol { @apply list-decimal; }
+
+.prose-chat li {
+  @apply mb-1 text-gray-800;
+}
+
+.prose-chat strong {
+  @apply font-semibold text-gray-900;
+}
+
+.prose-chat code {
+  @apply bg-gray-100 text-gray-800 rounded px-1 py-0.5 text-sm font-mono;
+}
+
+.prose-chat pre {
+  @apply bg-gray-100 rounded-lg p-4 overflow-x-auto mb-3;
+}
+
+.prose-chat pre code {
+  @apply bg-transparent p-0;
+}
+
+.prose-chat blockquote {
+  @apply border-l-4 border-blue-300 pl-4 italic text-gray-600 mb-3;
+}
+
+.prose-chat table {
+  @apply w-full border-collapse mb-4 text-sm;
+}
+
+.prose-chat th {
+  @apply bg-gray-100 text-left p-2 border border-gray-200 font-semibold;
+}
+
+.prose-chat td {
+  @apply p-2 border border-gray-200;
+}
