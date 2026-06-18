@@ -141,7 +141,9 @@ export default function DocumentsPage() {
       addJob({ status: 'embedding', progress: 70 })
 
       // 4. Call Netlify Function to chunk + embed
-      const res = await fetch('/.netlify/functions/process-document', {
+      // Background function — returns 202 immediately, processes async
+      // Document status is polled every 3s via fetchDocs
+      const res = await fetch('/.netlify/functions/process-document-background', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -149,13 +151,8 @@ export default function DocumentsPage() {
         },
         body: JSON.stringify({ document_id: docData.id, text }),
       })
-      if (!res.ok) {
-        let errMsg = `Server error ${res.status}`
-        try {
-          const body = await res.json()
-          if (body.error) errMsg = body.error
-        } catch { /* non-JSON response */ }
-        throw new Error(errMsg)
+      if (res.status !== 202 && !res.ok) {
+        throw new Error(`Server error ${res.status}`)
       }
       addJob({ status: 'done', progress: 100 })
       fetchDocs()
