@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { FileText, MessageSquare, CheckCircle, Clock, AlertTriangle, ArrowRight } from 'lucide-react'
 import { supabase, type Document } from '../lib/supabase'
@@ -153,7 +153,7 @@ export default function DashboardPage() {
 function StatCard({
   icon, label, value, bg,
 }: {
-  icon: React.ReactNode
+  icon: ReactNode
   label: string
   value: number | string
   bg: string
@@ -171,7 +171,7 @@ function QuickAction({
   to, icon, title, description, bg, textColor,
 }: {
   to: string
-  icon: React.ReactNode
+  icon: ReactNode
   title: string
   description: string
   bg: string

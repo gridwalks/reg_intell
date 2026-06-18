@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   Upload,
   FileText,
@@ -304,7 +304,7 @@ function StatusChip({ status }: { status: Document['status'] }) {
     processing: 'bg-amber-100 text-amber-700',
     error: 'bg-red-100 text-red-700',
   }
-  const icons: Record<Document['status'], React.ReactNode> = {
+  const icons: Record<Document['status'], ReactNode> = {
     ready: <CheckCircle className="w-3 h-3" />,
     processing: <Clock className="w-3 h-3 animate-spin" />,
     error: <AlertTriangle className="w-3 h-3" />,
