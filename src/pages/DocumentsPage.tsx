@@ -150,8 +150,12 @@ export default function DocumentsPage() {
         body: JSON.stringify({ document_id: docData.id, text }),
       })
       if (!res.ok) {
-        const { error } = await res.json()
-        throw new Error(error || 'Embedding failed')
+        let errMsg = `Server error ${res.status}`
+        try {
+          const body = await res.json()
+          if (body.error) errMsg = body.error
+        } catch { /* non-JSON response */ }
+        throw new Error(errMsg)
       }
       addJob({ status: 'done', progress: 100 })
       fetchDocs()
