@@ -2,8 +2,15 @@ import type { Handler } from '@netlify/functions'
 import { createClient } from '@supabase/supabase-js'
 import OpenAI from 'openai'
 
+function getSupabaseUrl(): string {
+  const dbUrl = process.env.SUPABASE_DATABASE_URL ?? ''
+  const match = dbUrl.match(/postgres\.([^:@]+)[^@]*@/)
+  if (match) return `https://${match[1]}.supabase.co`
+  return process.env.SUPABASE_URL ?? ''
+}
+
 const supabase = createClient(
-  process.env.SUPABASE_URL!,
+  getSupabaseUrl(),
   process.env.SUPABASE_SERVICE_ROLE_KEY! // bypasses RLS — user verified below
 )
 

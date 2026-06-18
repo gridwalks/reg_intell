@@ -5,12 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "node scripts/build.cjs",
     "preview": "vite preview",
     "functions:dev": "netlify dev"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.52.0",
+    "groq-sdk": "^0.9.0",
     "@supabase/supabase-js": "^2.45.4",
     "lucide-react": "^0.468.0",
     "mammoth": "^1.8.0",

@@ -1,14 +1,19 @@
 import type { Handler } from '@netlify/functions'
 import { createClient } from '@supabase/supabase-js'
 import OpenAI from 'openai'
-import Anthropic from '@anthropic-ai/sdk'
+import Groq from 'groq-sdk'
 
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+// Derive Supabase REST URL from the DATABASE_URL provided by Netlify's Supabase integration
+function getSupabaseUrl(): string {
+  const dbUrl = process.env.SUPABASE_DATABASE_URL ?? ''
+  const match = dbUrl.match(/postgres\.([^:@]+)[^@]*@/)
+  if (match) return `https://${match[1]}.supabase.co`
+  return process.env.SUPABASE_URL ?? ''
+}
+
+const supabase = createClient(getSupabaseUrl(), process.env.SUPABASE_SERVICE_ROLE_KEY!)
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! })
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! })
 
 const SYSTEM_PROMPT = `You are RegIntel, an expert pharmaceutical regulatory intelligence assistant with deep expertise in:
 
@@ -63,16 +68,16 @@ export const handler: Handler = async (event) => {
   if (authError || !user) return { statusCode: 401, body: 'Unauthorized' }
 
   try {
-    const { query, conversation_history = [] } = JSON.parse(event.body!)
+    const { message, history = [] } = JSON.parse(event.body!)
 
-    if (!query?.trim()) {
-      return { statusCode: 400, body: 'Missing query' }
+    if (!message?.trim()) {
+      return { statusCode: 400, body: JSON.stringify({ error: 'Missing message' }) }
     }
 
     // 1. Embed the query
     const { data: embedData } = await openai.embeddings.create({
       model: 'text-embedding-3-small',
-      input: query,
+      input: message,
     })
     const queryEmbedding = embedData[0].embedding
 
@@ -86,73 +91,59 @@ export const handler: Handler = async (event) => {
         p_user_id: user.id,
       }
     )
-
     if (searchErr) throw searchErr
 
     // 3. Build RAG context block
+    type Source = { document_name: string; content: string; similarity: number }
+    const sources: Source[] = []
     let contextBlock = ''
-    const sources: Array<{ doc_name: string; snippet: string; similarity: number }> = []
 
     if (chunks && chunks.length > 0) {
       contextBlock =
         '<regulatory_context>\nThe following excerpts are from the user\'s uploaded regulatory documents. Use these as your primary source:\n\n' +
         chunks
-          .map(
-            (c: { doc_name: string; content: string; similarity: number }, i: number) => {
-              sources.push({
-                doc_name: c.doc_name,
-                snippet: c.content.slice(0, 300),
-                similarity: Math.round(c.similarity * 100),
-              })
-              return `[Document: ${c.doc_name} | Relevance: ${Math.round(c.similarity * 100)}%]\n${c.content}`
-            }
-          )
+          .map((c: { document_name: string; content: string; similarity: number }) => {
+            sources.push({
+              document_name: c.document_name,
+              content: c.content.slice(0, 300),
+              similarity: c.similarity,
+            })
+            return `[Document: ${c.document_name} | Relevance: ${Math.round(c.similarity * 100)}%]\n${c.content}`
+          })
           .join('\n\n---\n\n') +
         '\n</regulatory_context>'
     }
 
-    // 4. Compose messages for Claude
-    const userContent = contextBlock
-      ? `${contextBlock}\n\nQuestion: ${query}`
-      : query
+    const userContent = contextBlock ? `${contextBlock}\n\nQuestion: ${message}` : message
 
-    type ConvTurn = { role: 'user' | 'assistant'; content: string }
-    const messages: Anthropic.MessageParam[] = [
-      ...(conversation_history as ConvTurn[]).map(
-        (m): Anthropic.MessageParam => ({ role: m.role, content: m.content })
-      ),
+    // 4. Build message history for Groq
+    type ChatMsg = { role: 'user' | 'assistant'; content: string }
+    const messages: ChatMsg[] = [
+      ...(history as ChatMsg[]),
       { role: 'user', content: userContent },
     ]
 
-    // 5. Call Claude
-    const response = await anthropic.messages.create({
-      model: 'claude-opus-4-8',
+    // 5. Call Groq
+    const completion = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        ...messages,
+      ],
       max_tokens: 4096,
-      thinking: { type: 'adaptive' },
-      system: SYSTEM_PROMPT,
-      messages,
+      temperature: 0.3,
     })
 
-    const answerText = response.content
-      .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-      .map(b => b.text)
-      .join('')
+    const answerText = completion.choices[0]?.message?.content ?? ''
 
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: answerText,
-        sources,
-        stop_reason: response.stop_reason,
-      }),
+      body: JSON.stringify({ message: answerText, sources }),
     }
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Unknown error'
-    console.error('chat error:', message)
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: message }),
-    }
+    const msg = err instanceof Error ? err.message : 'Unknown error'
+    console.error('chat error:', msg)
+    return { statusCode: 500, body: JSON.stringify({ error: msg }) }
   }
 }
