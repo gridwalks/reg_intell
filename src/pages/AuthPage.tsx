@@ -28,7 +28,9 @@ export default function AuthPage() {
         if (error) throw error
         setInfo('Account created. You can now sign in.')
       } else if (mode === 'reset') {
-        const { error } = await supabase.auth.resetPasswordForEmail(email)
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: 'https://regintel.acceleraqa.io/auth',
+        })
         if (error) throw error
         setInfo('Password reset link sent — check your email.')
       } else {
