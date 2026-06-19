@@ -32,6 +32,7 @@ type Article = {
 type Source = {
   id: string
   name: string
+  homepage_url: string
   access_status: string
   tier: number
   notes: string | null
