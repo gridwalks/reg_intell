@@ -3,7 +3,6 @@ import {
   LayoutDashboard,
   FileText,
   MessageSquare,
-  Rocket,
   LogOut,
   ChevronRight,
   Newspaper,
@@ -33,14 +32,11 @@ export default function Layout() {
       <aside className="w-60 flex flex-col shrink-0" style={{ backgroundColor: '#1e1b4b' }}>
 
         {/* Brand */}
-        <div className="flex items-center gap-3 px-5 py-5 border-b border-indigo-800">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#4F46E5' }}>
-            <Rocket className="w-5 h-5 text-white" />
+        <div className="px-4 py-4 border-b border-indigo-800">
+          <div className="bg-white rounded-xl px-3 py-2 inline-flex items-center">
+            <img src="/logo.png" alt="AcceleraQA" className="h-8 w-auto" />
           </div>
-          <div>
-            <p className="text-white font-bold text-sm leading-none tracking-tight">AcceleraQA</p>
-            <p className="text-indigo-300 text-xs mt-0.5">Regulatory Intelligence</p>
-          </div>
+          <p className="text-indigo-300 text-xs mt-2 px-0.5">Regulatory Intelligence</p>
         </div>
 
         {/* Navigation */}
