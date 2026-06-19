@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { Shield, FlaskConical, AlertCircle } from 'lucide-react'
+import { Shield, Rocket, AlertCircle } from 'lucide-react'
 
 export default function AuthPage() {
   const [mode, setMode] = useState<'login' | 'signup' | 'reset'>('login')
@@ -42,28 +42,26 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700 flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%)' }}>
       <div className="w-full max-w-md">
-        {/* Logo / Brand */}
+
+        {/* Brand */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-white/10 rounded-2xl mb-4 backdrop-blur">
-            <FlaskConical className="w-8 h-8 text-white" />
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-white/10 rounded-2xl mb-4 backdrop-blur-sm border border-white/20">
+            <Rocket className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-white">RegIntel</h1>
-          <p className="text-blue-200 mt-1 text-sm">
-            Pharmaceutical Regulatory Intelligence Platform
-          </p>
+          <h1 className="text-3xl font-bold text-white tracking-tight">AcceleraQA</h1>
+          <p className="text-indigo-200 mt-1 text-sm">Regulatory Intelligence Platform</p>
         </div>
 
         {/* Card */}
         <div className="bg-white rounded-2xl shadow-2xl p-8">
+
           {mode !== 'reset' && (
             <div className="flex gap-1 mb-6 bg-gray-100 rounded-lg p-1">
               <button
                 className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
-                  mode === 'login'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
+                  mode === 'login' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
                 }`}
                 onClick={() => { setMode('login'); setError(''); setInfo('') }}
               >
@@ -71,9 +69,7 @@ export default function AuthPage() {
               </button>
               <button
                 className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
-                  mode === 'signup'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
+                  mode === 'signup' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
                 }`}
                 onClick={() => { setMode('signup'); setError(''); setInfo('') }}
               >
@@ -99,7 +95,8 @@ export default function AuthPage() {
                   onChange={e => setFullName(e.target.value)}
                   required
                   placeholder="Dr. Jane Smith"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-transparent text-sm"
+                  style={{ '--tw-ring-color': '#4F46E5' } as React.CSSProperties}
                 />
               </div>
             )}
@@ -111,8 +108,8 @@ export default function AuthPage() {
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 required
-                placeholder="you@pharmacompany.com"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                placeholder="you@company.com"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
               />
             </div>
 
@@ -126,7 +123,7 @@ export default function AuthPage() {
                   required
                   minLength={8}
                   placeholder="••••••••"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
                 />
               </div>
             )}
@@ -139,7 +136,7 @@ export default function AuthPage() {
             )}
 
             {info && (
-              <div className="text-blue-700 bg-blue-50 rounded-lg p-3 text-sm">
+              <div className="text-indigo-700 bg-indigo-50 rounded-lg p-3 text-sm">
                 {info}
               </div>
             )}
@@ -147,7 +144,8 @@ export default function AuthPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 bg-blue-700 hover:bg-blue-800 disabled:bg-blue-400 text-white font-medium rounded-lg transition-colors text-sm"
+              className="w-full py-2.5 text-white font-medium rounded-lg transition-opacity text-sm disabled:opacity-60"
+              style={{ backgroundColor: '#4F46E5' }}
             >
               {loading ? 'Please wait…' : mode === 'login' ? 'Sign In' : mode === 'signup' ? 'Create Account' : 'Send reset link'}
             </button>
@@ -156,7 +154,7 @@ export default function AuthPage() {
               <button
                 type="button"
                 onClick={() => { setMode('reset'); setError(''); setInfo('') }}
-                className="w-full text-sm text-gray-500 hover:text-blue-600 text-center"
+                className="w-full text-sm text-gray-500 hover:text-indigo-600 text-center transition-colors"
               >
                 Forgot password?
               </button>
@@ -166,15 +164,15 @@ export default function AuthPage() {
               <button
                 type="button"
                 onClick={() => { setMode('login'); setError(''); setInfo('') }}
-                className="w-full text-sm text-gray-500 hover:text-blue-600 text-center"
+                className="w-full text-sm text-gray-500 hover:text-indigo-600 text-center transition-colors"
               >
                 Back to sign in
               </button>
             )}
           </form>
 
-          <div className="mt-6 flex items-center gap-2 text-xs text-gray-500">
-            <Shield className="w-4 h-4 text-gray-400" />
+          <div className="mt-6 flex items-center gap-2 text-xs text-gray-400">
+            <Shield className="w-4 h-4 shrink-0" />
             <span>Secured by Supabase. Your documents are private to your account.</span>
           </div>
         </div>

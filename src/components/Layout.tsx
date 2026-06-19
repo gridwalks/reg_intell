@@ -3,7 +3,7 @@ import {
   LayoutDashboard,
   FileText,
   MessageSquare,
-  FlaskConical,
+  Rocket,
   LogOut,
   ChevronRight,
   Newspaper,
@@ -30,15 +30,16 @@ export default function Layout() {
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
-      <aside className="w-60 bg-blue-900 flex flex-col shrink-0">
+      <aside className="w-60 flex flex-col shrink-0" style={{ backgroundColor: '#1e1b4b' }}>
+
         {/* Brand */}
-        <div className="flex items-center gap-3 px-5 py-5 border-b border-blue-800">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-            <FlaskConical className="w-5 h-5 text-white" />
+        <div className="flex items-center gap-3 px-5 py-5 border-b border-indigo-800">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#4F46E5' }}>
+            <Rocket className="w-5 h-5 text-white" />
           </div>
           <div>
-            <p className="text-white font-semibold text-sm leading-none">RegIntel</p>
-            <p className="text-blue-300 text-xs mt-0.5">Regulatory Intelligence</p>
+            <p className="text-white font-bold text-sm leading-none tracking-tight">AcceleraQA</p>
+            <p className="text-indigo-300 text-xs mt-0.5">Regulatory Intelligence</p>
           </div>
         </div>
 
@@ -51,10 +52,11 @@ export default function Layout() {
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   isActive
-                    ? 'bg-blue-700 text-white'
-                    : 'text-blue-200 hover:bg-blue-800 hover:text-white'
+                    ? 'text-white'
+                    : 'text-indigo-200 hover:text-white'
                 }`
               }
+              style={({ isActive }) => isActive ? { backgroundColor: '#4F46E5' } : undefined}
             >
               {({ isActive }) => (
                 <>
@@ -67,8 +69,8 @@ export default function Layout() {
           ))}
 
           {isAdmin && (
-            <div className="pt-3 mt-3 border-t border-blue-800">
-              <p className="text-blue-400 text-xs px-3 mb-1.5 uppercase tracking-wide font-medium">Admin</p>
+            <div className="pt-3 mt-3 border-t border-indigo-800">
+              <p className="text-indigo-400 text-xs px-3 mb-1.5 uppercase tracking-wide font-medium">Admin</p>
               {adminNav.map(({ to, icon: Icon, label }) => (
                 <NavLink
                   key={to}
@@ -76,10 +78,11 @@ export default function Layout() {
                   className={({ isActive }) =>
                     `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                       isActive
-                        ? 'bg-blue-700 text-white'
-                        : 'text-blue-200 hover:bg-blue-800 hover:text-white'
+                        ? 'text-white'
+                        : 'text-indigo-200 hover:text-white'
                     }`
                   }
+                  style={({ isActive }) => isActive ? { backgroundColor: '#4F46E5' } : undefined}
                 >
                   {({ isActive }) => (
                     <>
@@ -95,13 +98,13 @@ export default function Layout() {
         </nav>
 
         {/* User */}
-        <div className="px-3 pb-4 border-t border-blue-800 pt-3">
+        <div className="px-3 pb-4 border-t border-indigo-800 pt-3">
           <div className="px-3 py-2 mb-1">
-            <p className="text-blue-200 text-xs truncate">{user?.email}</p>
+            <p className="text-indigo-200 text-xs truncate">{user?.email}</p>
           </div>
           <button
             onClick={signOut}
-            className="flex items-center gap-3 w-full px-3 py-2.5 text-blue-300 hover:text-white hover:bg-blue-800 rounded-lg text-sm font-medium transition-colors"
+            className="flex items-center gap-3 w-full px-3 py-2.5 text-indigo-300 hover:text-white rounded-lg text-sm font-medium transition-colors hover:bg-indigo-800"
           >
             <LogOut className="w-4 h-4" />
             Sign Out

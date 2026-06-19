@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FlaskConical, AlertCircle, CheckCircle } from 'lucide-react'
+import { Rocket, AlertCircle, CheckCircle } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 export default function UpdatePasswordPage() {
@@ -27,13 +27,14 @@ export default function UpdatePasswordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700 flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%)' }}>
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-white/10 rounded-2xl mb-4 backdrop-blur">
-            <FlaskConical className="w-8 h-8 text-white" />
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-white/10 rounded-2xl mb-4 backdrop-blur-sm border border-white/20">
+            <Rocket className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-white">RegIntel</h1>
+          <h1 className="text-3xl font-bold text-white tracking-tight">AcceleraQA</h1>
+          <p className="text-indigo-200 mt-1 text-sm">Regulatory Intelligence Platform</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-2xl p-8">
@@ -81,7 +82,8 @@ export default function UpdatePasswordPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-2.5 bg-blue-700 hover:bg-blue-800 disabled:bg-blue-400 text-white font-medium rounded-lg transition-colors text-sm"
+                  className="w-full py-2.5 text-white font-medium rounded-lg transition-opacity text-sm disabled:opacity-60"
+              style={{ backgroundColor: '#4F46E5' }}
                 >
                   {loading ? 'Saving…' : 'Set new password'}
                 </button>
