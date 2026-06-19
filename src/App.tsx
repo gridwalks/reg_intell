@@ -1,3 +1,4 @@
+import { type ReactNode } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAuth } from './contexts/AuthContext'
 import Layout from './components/Layout'
@@ -10,7 +11,7 @@ import AdminNewsPage from './pages/AdminNewsPage'
 import AdminUsersPage from './pages/AdminUsersPage'
 import PendingApprovalPage from './pages/PendingApprovalPage'
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user, profile, loading } = useAuth()
 
   if (loading) {
