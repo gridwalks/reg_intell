@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { Shield, FlaskConical, AlertCircle } from 'lucide-react'
 
 export default function AuthPage() {
-  const [mode, setMode] = useState<'login' | 'signup'>('login')
+  const [mode, setMode] = useState<'login' | 'signup' | 'reset'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
@@ -26,6 +26,12 @@ export default function AuthPage() {
         })
         if (error) throw error
         setInfo('Account created. You can now sign in.')
+      } else if (mode === 'reset') {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/auth`,
+        })
+        if (error) throw error
+        setInfo('Password reset link sent — check your email.')
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) throw error
@@ -53,35 +59,42 @@ export default function AuthPage() {
 
         {/* Card */}
         <div className="bg-white rounded-2xl shadow-2xl p-8">
-          <div className="flex gap-1 mb-6 bg-gray-100 rounded-lg p-1">
-            <button
-              className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
-                mode === 'login'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-              onClick={() => { setMode('login'); setError(''); setInfo('') }}
-            >
-              Sign In
-            </button>
-            <button
-              className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
-                mode === 'signup'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-              onClick={() => { setMode('signup'); setError(''); setInfo('') }}
-            >
-              Create Account
-            </button>
-          </div>
+          {mode !== 'reset' && (
+            <div className="flex gap-1 mb-6 bg-gray-100 rounded-lg p-1">
+              <button
+                className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
+                  mode === 'login'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+                onClick={() => { setMode('login'); setError(''); setInfo('') }}
+              >
+                Sign In
+              </button>
+              <button
+                className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
+                  mode === 'signup'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+                onClick={() => { setMode('signup'); setError(''); setInfo('') }}
+              >
+                Create Account
+              </button>
+            </div>
+          )}
+
+          {mode === 'reset' && (
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold text-gray-900">Reset password</h2>
+              <p className="text-sm text-gray-500 mt-1">Enter your email and we'll send a reset link.</p>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {mode === 'signup' && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Full Name
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
                 <input
                   type="text"
                   value={fullName}
@@ -94,9 +107,7 @@ export default function AuthPage() {
             )}
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email Address
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
               <input
                 type="email"
                 value={email}
@@ -107,20 +118,20 @@ export default function AuthPage() {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Password
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-                minLength={8}
-                placeholder="••••••••"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-              />
-            </div>
+            {mode !== 'reset' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                  minLength={8}
+                  placeholder="••••••••"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                />
+              </div>
+            )}
 
             {error && (
               <div className="flex items-start gap-2 text-red-600 bg-red-50 rounded-lg p-3 text-sm">
@@ -140,12 +151,28 @@ export default function AuthPage() {
               disabled={loading}
               className="w-full py-2.5 bg-blue-700 hover:bg-blue-800 disabled:bg-blue-400 text-white font-medium rounded-lg transition-colors text-sm"
             >
-              {loading
-                ? 'Please wait…'
-                : mode === 'login'
-                ? 'Sign In'
-                : 'Create Account'}
+              {loading ? 'Please wait…' : mode === 'login' ? 'Sign In' : mode === 'signup' ? 'Create Account' : 'Send reset link'}
             </button>
+
+            {mode === 'login' && (
+              <button
+                type="button"
+                onClick={() => { setMode('reset'); setError(''); setInfo('') }}
+                className="w-full text-sm text-gray-500 hover:text-blue-600 text-center"
+              >
+                Forgot password?
+              </button>
+            )}
+
+            {mode === 'reset' && (
+              <button
+                type="button"
+                onClick={() => { setMode('login'); setError(''); setInfo('') }}
+                className="w-full text-sm text-gray-500 hover:text-blue-600 text-center"
+              >
+                Back to sign in
+              </button>
+            )}
           </form>
 
           <div className="mt-6 flex items-center gap-2 text-xs text-gray-500">
