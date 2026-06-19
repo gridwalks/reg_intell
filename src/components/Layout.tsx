@@ -12,10 +12,13 @@ import {
 import { useAuth } from '../contexts/AuthContext'
 
 const nav = [
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/documents', icon: FileText, label: 'Documents' },
   { to: '/query', icon: MessageSquare, label: 'Intelligence Query' },
   { to: '/news', icon: Newspaper, label: 'News' },
+]
+
+const adminContentNav = [
+  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/documents', icon: FileText, label: 'Documents' },
 ]
 
 const adminNav = [
@@ -66,7 +69,28 @@ export default function Layout() {
 
           {isAdmin && (
             <div className="pt-3 mt-3 border-t border-indigo-800">
-              <p className="text-indigo-400 text-xs px-3 mb-1.5 uppercase tracking-wide font-medium">Admin</p>
+              <p className="text-indigo-400 text-xs px-3 mb-1.5 uppercase tracking-wide font-medium">Content</p>
+              {adminContentNav.map(({ to, icon: Icon, label }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                      isActive ? 'text-white' : 'text-indigo-200 hover:text-white'
+                    }`
+                  }
+                  style={({ isActive }) => isActive ? { backgroundColor: '#4F46E5' } : undefined}
+                >
+                  {({ isActive }) => (
+                    <>
+                      <Icon className="w-4 h-4 shrink-0" />
+                      <span className="flex-1">{label}</span>
+                      {isActive && <ChevronRight className="w-3 h-3 opacity-60" />}
+                    </>
+                  )}
+                </NavLink>
+              ))}
+              <p className="text-indigo-400 text-xs px-3 mt-3 mb-1.5 uppercase tracking-wide font-medium">Admin</p>
               {adminNav.map(({ to, icon: Icon, label }) => (
                 <NavLink
                   key={to}
