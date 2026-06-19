@@ -7,6 +7,7 @@ export default function AuthPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
+  const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [error, setError] = useState('')
   const [info, setInfo] = useState('')
   const [loading, setLoading] = useState(false)
@@ -127,6 +128,23 @@ export default function AuthPage() {
               </div>
             )}
 
+            {mode === 'signup' && (
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={agreedToTerms}
+                  onChange={e => setAgreedToTerms(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 shrink-0"
+                />
+                <span className="text-sm text-gray-600">
+                  I agree to the{' '}
+                  <a href="https://acceleraqa.io/terms" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">Terms of Use</a>
+                  {' '}and{' '}
+                  <a href="https://acceleraqa.io/privacy" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">Privacy Policy</a>.
+                </span>
+              </label>
+            )}
+
             {error && (
               <div className="flex items-start gap-2 text-red-600 bg-red-50 rounded-lg p-3 text-sm">
                 <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
@@ -142,7 +160,7 @@ export default function AuthPage() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || (mode === 'signup' && !agreedToTerms)}
               className="w-full py-2.5 text-white font-medium rounded-lg transition-opacity text-sm disabled:opacity-60"
               style={{ backgroundColor: '#4F46E5' }}
             >
