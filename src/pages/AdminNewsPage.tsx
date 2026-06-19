@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown'
 import {
   CheckCircle, Trash2, Edit3, Eye, AlertTriangle,
   ChevronDown, ChevronUp, ExternalLink, RefreshCw, Play,
-  Plus, Save, X, Rss, Globe,
+  Plus, Save, X, Rss, Globe, Database,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -72,6 +72,7 @@ export default function AdminNewsPage() {
   const [msg, setMsg] = useState('')
   const [triggering, setTriggering] = useState(false)
   const [triggerCountdown, setTriggerCountdown] = useState(0)
+  const [backfilling, setBackfilling] = useState(false)
   const formRef = useRef<{ intro: string; sponsor: string; vendor: string } | null>(null)
 
   // Sources state
@@ -112,6 +113,27 @@ export default function AdminNewsPage() {
     } catch {
       setMsg('Failed to trigger pipeline.')
       setTriggering(false)
+    }
+  }
+
+  const backfillEmbeddings = async () => {
+    if (!session || backfilling) return
+    if (!confirm('Re-index all published newsletters for AI search? This may take a minute.')) return
+    setBackfilling(true)
+    setMsg('Indexing newsletters for AI search…')
+    try {
+      await fetch('/.netlify/functions/backfill-newsletter-embeddings-background', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      setTimeout(() => {
+        setBackfilling(false)
+        setMsg('Backfill complete — newsletters are now searchable.')
+        setTimeout(() => setMsg(''), 5000)
+      }, 8000)
+    } catch {
+      setMsg('Backfill failed.')
+      setBackfilling(false)
     }
   }
 
@@ -303,16 +325,29 @@ export default function AdminNewsPage() {
             Review newsletter drafts and manage the sources the pipeline ingests from.
           </p>
         </div>
-        <button
-          onClick={triggerPipeline}
-          disabled={triggering}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-medium rounded-lg transition-colors"
-        >
-          {triggering
-            ? <RefreshCw className="w-4 h-4 animate-spin" />
-            : <Play className="w-4 h-4" />}
-          {triggering ? `Pipeline running... ${triggerCountdown > 0 ? `(${triggerCountdown}s)` : ''}` : 'Run pipeline now'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={backfillEmbeddings}
+            disabled={backfilling}
+            title="Re-index all published newsletters so they appear in AI search results"
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            {backfilling
+              ? <RefreshCw className="w-4 h-4 animate-spin" />
+              : <Database className="w-4 h-4" />}
+            {backfilling ? 'Indexing…' : 'Index for AI'}
+          </button>
+          <button
+            onClick={triggerPipeline}
+            disabled={triggering}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            {triggering
+              ? <RefreshCw className="w-4 h-4 animate-spin" />
+              : <Play className="w-4 h-4" />}
+            {triggering ? `Pipeline running... ${triggerCountdown > 0 ? `(${triggerCountdown}s)` : ''}` : 'Run pipeline now'}
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
