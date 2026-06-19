@@ -73,18 +73,23 @@ export const handler: BackgroundHandler = async (event) => {
   try {
     const body = JSON.parse(event.body!)
     document_id = body.document_id
-    const text: string = body.text
 
-    if (!document_id || !text) return
+    if (!document_id) return
 
-    // Verify document belongs to user
+    // Fetch document + extracted text from DB (avoids POST body size limits)
     const { data: doc, error: docErr } = await supabase
       .from('documents')
-      .select('id')
+      .select('id, extracted_text')
       .eq('id', document_id)
       .eq('user_id', user.id)
       .single()
     if (docErr || !doc) return
+
+    const text: string = doc.extracted_text ?? ''
+    if (text.trim().length < 50) {
+      await supabase.from('documents').update({ status: 'error' }).eq('id', document_id)
+      return
+    }
 
     const chunks = chunkText(text)
     const BATCH = 20
@@ -114,7 +119,7 @@ export const handler: BackgroundHandler = async (event) => {
 
     await supabase
       .from('documents')
-      .update({ status: 'ready', chunk_count: stored })
+      .update({ status: 'ready', chunk_count: stored, extracted_text: null })
       .eq('id', document_id)
   } catch (err) {
     console.error('process-document-background error:', err)

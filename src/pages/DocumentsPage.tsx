@@ -124,7 +124,7 @@ export default function DocumentsPage() {
       if (storageErr) throw storageErr
       addJob({ progress: 50 })
 
-      // 3. Insert document record
+      // 3. Insert document record (including extracted text to avoid POST body size limits)
       const { data: docData, error: docErr } = await supabase
         .from('documents')
         .insert({
@@ -134,6 +134,7 @@ export default function DocumentsPage() {
           file_size: file.size,
           file_type: file.type,
           status: 'processing',
+          extracted_text: text,
         })
         .select()
         .single()
@@ -149,7 +150,7 @@ export default function DocumentsPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ document_id: docData.id, text }),
+        body: JSON.stringify({ document_id: docData.id }),
       })
       if (res.status !== 202 && !res.ok) {
         throw new Error(`Server error ${res.status}`)
