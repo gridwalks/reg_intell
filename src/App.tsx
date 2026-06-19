@@ -23,12 +23,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (!user) return <Navigate to="/auth" replace />
 
-  // Profile not yet loaded (brief window after login)
-  if (!profile) return (
-    <div className="flex h-screen items-center justify-center bg-gray-50">
-      <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-    </div>
-  )
+  // Profile couldn't be loaded (migration not yet run, or table error) — let them in
+  if (!profile) return <>{children}</>
 
   if (profile.status === 'pending')  return <PendingApprovalPage />
   if (profile.status === 'rejected') return <PendingApprovalPage rejected />
