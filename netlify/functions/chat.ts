@@ -81,26 +81,35 @@ export const handler: Handler = async (event) => {
     })
     const queryEmbedding = embedData[0].embedding
 
-    // 2. Retrieve relevant chunks via pgvector similarity search
-    const { data: chunks, error: searchErr } = await supabase.rpc(
-      'match_document_chunks',
-      {
+    // 2. Retrieve relevant chunks via pgvector similarity search (documents + newsletters in parallel)
+    const [docResult, newsResult] = await Promise.all([
+      supabase.rpc('match_document_chunks', {
         query_embedding: queryEmbedding,
         match_threshold: 0.45,
-        match_count: 10,
+        match_count: 8,
         p_user_id: user.id,
-      }
-    )
-    if (searchErr) throw searchErr
+      }),
+      supabase.rpc('match_newsletter_chunks', {
+        query_embedding: queryEmbedding,
+        match_threshold: 0.45,
+        match_count: 5,
+      }),
+    ])
+    if (docResult.error) throw docResult.error
+
+    const chunks = docResult.data ?? []
+    const newsletterChunks = newsResult.data ?? []
 
     // 3. Build RAG context block
     type Source = { document_name: string; content: string; similarity: number }
     const sources: Source[] = []
     let contextBlock = ''
 
-    if (chunks && chunks.length > 0) {
-      contextBlock =
-        '<regulatory_context>\nThe following excerpts are from the user\'s uploaded regulatory documents. Use these as your primary source:\n\n' +
+    const contextParts: string[] = []
+
+    if (chunks.length > 0) {
+      const docContext =
+        'The following excerpts are from the user\'s uploaded regulatory documents:\n\n' +
         chunks
           .map((c: { document_name: string; content: string; similarity: number }) => {
             sources.push({
@@ -110,8 +119,28 @@ export const handler: Handler = async (event) => {
             })
             return `[Document: ${c.document_name} | Relevance: ${Math.round(c.similarity * 100)}%]\n${c.content}`
           })
-          .join('\n\n---\n\n') +
-        '\n</regulatory_context>'
+          .join('\n\n---\n\n')
+      contextParts.push(docContext)
+    }
+
+    if (newsletterChunks.length > 0) {
+      const newsContext =
+        'The following excerpts are from published AcceleraQA regulatory intelligence newsletters:\n\n' +
+        newsletterChunks
+          .map((c: { content: string; similarity: number; draft_date: string }) => {
+            sources.push({
+              document_name: `Newsletter (${c.draft_date})`,
+              content: c.content.slice(0, 300),
+              similarity: c.similarity,
+            })
+            return `[Newsletter: ${c.draft_date} | Relevance: ${Math.round(c.similarity * 100)}%]\n${c.content}`
+          })
+          .join('\n\n---\n\n')
+      contextParts.push(newsContext)
+    }
+
+    if (contextParts.length > 0) {
+      contextBlock = '<regulatory_context>\n' + contextParts.join('\n\n') + '\n</regulatory_context>'
     }
 
     const userContent = contextBlock ? `${contextBlock}\n\nQuestion: ${message}` : message

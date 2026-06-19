@@ -176,7 +176,7 @@ export default function AdminNewsPage() {
   }
 
   const approve = async () => {
-    if (!selectedDraft) return
+    if (!selectedDraft || !session) return
     if (!confirm('Approve and publish this newsletter?')) return
     setSaving(true)
     await saveChanges()
@@ -184,10 +184,23 @@ export default function AdminNewsPage() {
       .from('newsletter_drafts')
       .update({ status: 'published', published_at: new Date().toISOString() })
       .eq('id', selectedDraft.id)
-    if (error) setMsg('Publish failed: ' + error.message)
-    else { setMsg('Published'); loadDrafts() }
+    if (error) {
+      setMsg('Publish failed: ' + error.message)
+    } else {
+      setMsg('Published — indexing for AI search…')
+      loadDrafts()
+      // Embed newsletter content for RAG search (fire and forget)
+      fetch('/.netlify/functions/embed-newsletter-background', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ draft_id: selectedDraft.id }),
+      }).catch(() => {/* background — ignore network errors */})
+    }
     setSaving(false)
-    setTimeout(() => setMsg(''), 3000)
+    setTimeout(() => setMsg(''), 4000)
   }
 
   const discard = async () => {
