@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import {
-  Upload,
   FileText,
   Trash2,
   CheckCircle,
@@ -8,6 +7,9 @@ import {
   AlertTriangle,
   X,
   CloudUpload,
+  ExternalLink,
+  Save,
+  Eye,
 } from 'lucide-react'
 import { supabase, type Document } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -71,11 +73,22 @@ type UploadJob = {
   progress: number
 }
 
+type DocModal = {
+  doc: Document
+  name: string
+  title: string
+  document_date: string
+  saving: boolean
+  viewUrl: string | null
+  loadingUrl: boolean
+}
+
 export default function DocumentsPage() {
   const { user, session } = useAuth()
   const [docs, setDocs] = useState<Document[]>([])
   const [jobs, setJobs] = useState<UploadJob[]>([])
   const [dragging, setDragging] = useState(false)
+  const [modal, setModal] = useState<DocModal | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const fetchDocs = useCallback(async () => {
@@ -97,6 +110,47 @@ export default function DocumentsPage() {
     const id = setInterval(fetchDocs, 3000)
     return () => clearInterval(id)
   }, [docs, fetchDocs])
+
+  const openModal = (doc: Document) => {
+    setModal({
+      doc,
+      name: doc.name,
+      title: doc.title ?? '',
+      document_date: doc.document_date ?? '',
+      saving: false,
+      viewUrl: null,
+      loadingUrl: false,
+    })
+  }
+
+  const saveMetadata = async () => {
+    if (!modal) return
+    setModal(m => m ? { ...m, saving: true } : m)
+    const { error } = await supabase
+      .from('documents')
+      .update({
+        name: modal.name.trim() || modal.doc.name,
+        title: modal.title.trim() || null,
+        document_date: modal.document_date || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', modal.doc.id)
+    if (!error) {
+      await fetchDocs()
+      setModal(null)
+    } else {
+      setModal(m => m ? { ...m, saving: false } : m)
+    }
+  }
+
+  const loadViewUrl = async () => {
+    if (!modal) return
+    setModal(m => m ? { ...m, loadingUrl: true } : m)
+    const { data } = await supabase.storage
+      .from('regulatory-documents')
+      .createSignedUrl(modal.doc.file_path, 3600)
+    setModal(m => m ? { ...m, viewUrl: data?.signedUrl ?? null, loadingUrl: false } : m)
+  }
 
   const processFile = async (file: File) => {
     if (!user || !session) return
@@ -285,33 +339,41 @@ export default function DocumentsPage() {
         ) : (
           <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
             {docs.map(doc => (
-              <div key={doc.id} className="flex items-center gap-4 px-5 py-4 group">
-                <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
-                  <FileText className="w-4 h-4 text-blue-600" />
+              <div
+                key={doc.id}
+                className="flex items-center gap-4 px-5 py-4 group hover:bg-gray-50 cursor-pointer transition-colors"
+                onClick={() => openModal(doc)}
+              >
+                <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
+                  <FileText className="w-4 h-4 text-indigo-600" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{doc.name}</p>
-                  <div className="flex items-center gap-3 mt-0.5">
-                    <span className="text-xs text-gray-400">
-                      {new Date(doc.created_at).toLocaleDateString('en-US', {
-                        month: 'short', day: 'numeric', year: 'numeric',
-                      })}
-                    </span>
-                    {doc.file_size && (
-                      <span className="text-xs text-gray-400">
-                        {(doc.file_size / 1024).toFixed(0)} KB
+                  <p className="text-sm font-medium text-gray-900 truncate">
+                    {doc.title || doc.name}
+                  </p>
+                  <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                    {doc.title && (
+                      <span className="text-xs text-gray-400 truncate max-w-xs">{doc.name}</span>
+                    )}
+                    {doc.document_date && (
+                      <span className="text-xs text-indigo-600">
+                        {new Date(doc.document_date + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                       </span>
                     )}
+                    <span className="text-xs text-gray-400">
+                      Uploaded {new Date(doc.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </span>
+                    {doc.file_size && (
+                      <span className="text-xs text-gray-400">{(doc.file_size / 1024).toFixed(0)} KB</span>
+                    )}
                     {doc.chunk_count > 0 && (
-                      <span className="text-xs text-gray-400">
-                        {doc.chunk_count} chunks indexed
-                      </span>
+                      <span className="text-xs text-gray-400">{doc.chunk_count} chunks indexed</span>
                     )}
                   </div>
                 </div>
                 <StatusChip status={doc.status} />
                 <button
-                  onClick={() => deleteDoc(doc)}
+                  onClick={e => { e.stopPropagation(); deleteDoc(doc) }}
                   className="opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 hover:text-red-500 transition-all"
                   title="Delete"
                 >
@@ -322,6 +384,132 @@ export default function DocumentsPage() {
           </div>
         )}
       </div>
+      {/* Document detail / metadata modal */}
+      {modal && !modal.viewUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setModal(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-indigo-600" />
+                <span className="text-sm font-semibold text-gray-900">Document Details</span>
+              </div>
+              <button onClick={() => setModal(null)} className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="px-6 py-5 space-y-4">
+              {/* Editable fields */}
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">File Name</label>
+                <input
+                  type="text"
+                  value={modal.name}
+                  onChange={e => setModal(m => m ? { ...m, name: e.target.value } : m)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Document Title</label>
+                <input
+                  type="text"
+                  value={modal.title}
+                  onChange={e => setModal(m => m ? { ...m, title: e.target.value } : m)}
+                  placeholder="e.g. 21 CFR Part 314 — Applications for FDA Approval"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Document Date</label>
+                <input
+                  type="date"
+                  value={modal.document_date}
+                  onChange={e => setModal(m => m ? { ...m, document_date: e.target.value } : m)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              {/* Read-only fields */}
+              <div className="grid grid-cols-3 gap-3 pt-2 border-t border-gray-100">
+                <div>
+                  <p className="text-xs text-gray-400 mb-0.5">Date Uploaded</p>
+                  <p className="text-xs font-medium text-gray-700">
+                    {new Date(modal.doc.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400 mb-0.5">Size</p>
+                  <p className="text-xs font-medium text-gray-700">
+                    {modal.doc.file_size ? `${(modal.doc.file_size / 1024).toFixed(0)} KB` : '—'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400 mb-0.5">Chunks Indexed</p>
+                  <p className="text-xs font-medium text-gray-700">{modal.doc.chunk_count ?? 0}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl">
+              {(modal.doc.file_type === 'application/pdf' || modal.doc.file_path?.endsWith('.pdf')) ? (
+                <button
+                  onClick={loadViewUrl}
+                  disabled={modal.loadingUrl}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors disabled:opacity-50"
+                >
+                  <Eye className="w-4 h-4" />
+                  {modal.loadingUrl ? 'Loading…' : 'View Document'}
+                </button>
+              ) : (
+                <div />
+              )}
+              <div className="flex items-center gap-2">
+                <button onClick={() => setModal(null)} className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors">
+                  Cancel
+                </button>
+                <button
+                  onClick={saveMetadata}
+                  disabled={modal.saving}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-lg disabled:opacity-60 transition-colors"
+                  style={{ backgroundColor: '#4F46E5' }}
+                >
+                  <Save className="w-4 h-4" />
+                  {modal.saving ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PDF viewer modal */}
+      {modal?.viewUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setModal(m => m ? { ...m, viewUrl: null } : m)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200 shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <FileText className="w-4 h-4 text-indigo-600 shrink-0" />
+                <span className="text-sm font-medium text-gray-900 truncate">{modal.doc.title || modal.doc.name}</span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0 ml-3">
+                <a href={modal.viewUrl} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 px-2 py-1 rounded hover:bg-indigo-50 transition-colors">
+                  <ExternalLink className="w-3.5 h-3.5" /> Open in new tab
+                </a>
+                <button
+                  onClick={() => setModal(m => m ? { ...m, viewUrl: null } : m)}
+                  className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            <iframe src={modal.viewUrl} className="flex-1 w-full rounded-b-2xl" title={modal.doc.title || modal.doc.name} />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
