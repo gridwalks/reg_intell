@@ -1,18 +1,30 @@
 import { useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { Send, Loader2, BookOpen, AlertTriangle, Bot, User, Sparkles } from 'lucide-react'
+import { Send, Loader2, BookOpen, AlertTriangle, Bot, User, Sparkles, X, FileText, Newspaper, ExternalLink } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import { supabase } from '../lib/supabase'
 
 type Source = {
   document_name: string
   content: string
   similarity: number
+  file_url?: string
+  source_type: 'document' | 'newsletter'
+  newsletter_draft_id?: string
+  draft_date?: string
 }
 
 type Message = {
   role: 'user' | 'assistant'
   content: string
   sources?: Source[]
+}
+
+type NewsletterDetail = {
+  draft_date: string
+  intro_text: string | null
+  sponsor_section: string | null
+  vendor_section: string | null
 }
 
 const STARTER_PROMPTS = [
@@ -28,6 +40,9 @@ export default function ChatPage() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [modalUrl, setModalUrl] = useState<string | null>(null)
+  const [modalTitle, setModalTitle] = useState('')
+  const [newsletterModal, setNewsletterModal] = useState<NewsletterDetail | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -40,6 +55,29 @@ export default function ChatPage() {
     if (!el) return
     el.style.height = 'auto'
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`
+  }
+
+  const openDocument = (src: Source) => {
+    if (src.source_type === 'newsletter' && src.newsletter_draft_id) {
+      openNewsletter(src.newsletter_draft_id, src.draft_date ?? '')
+    } else if (src.file_url) {
+      setModalTitle(src.document_name)
+      setModalUrl(src.file_url)
+    }
+  }
+
+  const openNewsletter = async (draftId: string, draftDate: string) => {
+    const { data } = await supabase
+      .from('newsletter_drafts')
+      .select('draft_date, intro_text, sponsor_section, vendor_section')
+      .eq('id', draftId)
+      .single()
+    if (data) {
+      setNewsletterModal(data)
+    } else {
+      // Fallback: navigate to news page
+      setModalTitle(`Newsletter — ${draftDate}`)
+    }
   }
 
   const sendMessage = async (text: string = input.trim()) => {
@@ -95,7 +133,7 @@ export default function ChatPage() {
           <h1 className="text-lg font-semibold text-gray-900">Intelligence Query</h1>
         </div>
         <p className="text-xs text-gray-500 mt-0.5">
-          Ask questions grounded in your uploaded regulatory documents.
+          Ask questions grounded in your uploaded regulatory documents and newsletters.
         </p>
       </div>
 
@@ -109,7 +147,7 @@ export default function ChatPage() {
               </div>
               <h2 className="text-xl font-semibold text-gray-900">Regulatory Intelligence Assistant</h2>
               <p className="text-gray-500 text-sm mt-2">
-                Powered by Claude with your document knowledge base.
+                Powered by your document knowledge base and published newsletters.
               </p>
             </div>
             <div className="grid sm:grid-cols-2 gap-3">
@@ -145,7 +183,7 @@ export default function ChatPage() {
                       <ReactMarkdown>{msg.content}</ReactMarkdown>
                     </div>
                     {msg.sources && msg.sources.length > 0 && (
-                      <SourcesPanel sources={msg.sources} />
+                      <SourcesPanel sources={msg.sources} onOpen={openDocument} />
                     )}
                   </div>
                 )}
@@ -209,15 +247,92 @@ export default function ChatPage() {
             </button>
           </div>
           <p className="text-center text-xs text-gray-400 mt-2">
-            Answers are based on your uploaded documents. Always verify against source materials.
+            Answers are based on your uploaded documents and newsletters. Always verify against source materials.
           </p>
         </div>
       </div>
+
+      {/* PDF document modal */}
+      {modalUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setModalUrl(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200 shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <FileText className="w-4 h-4 text-indigo-600 shrink-0" />
+                <span className="text-sm font-medium text-gray-900 truncate">{modalTitle}</span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0 ml-3">
+                <a
+                  href={modalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 px-2 py-1 rounded hover:bg-indigo-50 transition-colors"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" /> Open in new tab
+                </a>
+                <button onClick={() => setModalUrl(null)} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            <iframe
+              src={modalUrl}
+              className="flex-1 w-full rounded-b-2xl"
+              title={modalTitle}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Newsletter modal */}
+      {newsletterModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setNewsletterModal(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200 shrink-0">
+              <div className="flex items-center gap-2">
+                <Newspaper className="w-4 h-4 text-indigo-600" />
+                <span className="text-sm font-medium text-gray-900">
+                  Newsletter — {new Date(newsletterModal.draft_date + 'T12:00:00Z').toLocaleDateString('en-US', {
+                    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+                  })}
+                </span>
+              </div>
+              <button onClick={() => setNewsletterModal(null)} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="overflow-y-auto p-6 space-y-6">
+              {newsletterModal.intro_text && (
+                <section>
+                  <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Introduction</h3>
+                  <p className="text-sm text-gray-700 leading-relaxed">{newsletterModal.intro_text}</p>
+                </section>
+              )}
+              {newsletterModal.sponsor_section && (
+                <section>
+                  <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Sponsor Impact</h3>
+                  <div className="prose-chat text-sm">
+                    <ReactMarkdown>{newsletterModal.sponsor_section}</ReactMarkdown>
+                  </div>
+                </section>
+              )}
+              {newsletterModal.vendor_section && (
+                <section>
+                  <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Vendor & eClinical Impact</h3>
+                  <div className="prose-chat text-sm">
+                    <ReactMarkdown>{newsletterModal.vendor_section}</ReactMarkdown>
+                  </div>
+                </section>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
-function SourcesPanel({ sources }: { sources: Source[] }) {
+function SourcesPanel({ sources, onOpen }: { sources: Source[]; onOpen: (src: Source) => void }) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -233,17 +348,35 @@ function SourcesPanel({ sources }: { sources: Source[] }) {
 
       {open && (
         <div className="mt-3 space-y-2">
-          {sources.map((src, i) => (
-            <div key={i} className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-medium text-gray-700 truncate">{src.document_name}</span>
-                <span className="text-xs text-gray-400 shrink-0 ml-2">
-                  {Math.round(src.similarity * 100)}% match
-                </span>
+          {sources.map((src, i) => {
+            const isClickable = src.source_type === 'newsletter' || !!src.file_url
+            return (
+              <div key={i} className={`bg-gray-50 border border-gray-200 rounded-lg p-3 ${isClickable ? 'hover:border-indigo-300 hover:bg-indigo-50 transition-colors' : ''}`}>
+                <div className="flex items-center justify-between mb-1 gap-2">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    {src.source_type === 'newsletter'
+                      ? <Newspaper className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                      : <FileText className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                    }
+                    {isClickable ? (
+                      <button
+                        onClick={() => onOpen(src)}
+                        className="text-xs font-medium text-indigo-600 hover:underline text-left truncate"
+                      >
+                        {src.document_name}
+                      </button>
+                    ) : (
+                      <span className="text-xs font-medium text-gray-700 truncate">{src.document_name}</span>
+                    )}
+                  </div>
+                  <span className="text-xs text-gray-400 shrink-0">
+                    {Math.round(src.similarity * 100)}% match
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 line-clamp-3 leading-relaxed">{src.content}</p>
               </div>
-              <p className="text-xs text-gray-500 line-clamp-3 leading-relaxed">{src.content}</p>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

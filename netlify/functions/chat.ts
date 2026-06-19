@@ -100,22 +100,51 @@ export const handler: Handler = async (event) => {
     const chunks = docResult.data ?? []
     const newsletterChunks = newsResult.data ?? []
 
-    // 3. Build RAG context block
-    type Source = { document_name: string; content: string; similarity: number }
+    // 3. Generate signed URLs for unique documents so the UI can link to them
+    type Source = {
+      document_name: string
+      content: string
+      similarity: number
+      file_url?: string
+      source_type: 'document' | 'newsletter'
+      newsletter_draft_id?: string
+      draft_date?: string
+    }
     const sources: Source[] = []
-    let contextBlock = ''
 
+    // Fetch file_paths for unique documents referenced in chunks
+    const uniqueDocIds = [...new Set(chunks.map((c: { document_id: string }) => c.document_id))]
+    const docFilePaths: Record<string, string> = {}
+    if (uniqueDocIds.length > 0) {
+      const { data: docs } = await supabase
+        .from('documents')
+        .select('id, file_path, file_type')
+        .in('id', uniqueDocIds)
+      for (const doc of docs ?? []) {
+        // Only generate signed URLs for PDFs (viewable in browser)
+        if (doc.file_type === 'application/pdf' || doc.file_path?.endsWith('.pdf')) {
+          const { data: signed } = await supabase.storage
+            .from('regulatory-documents')
+            .createSignedUrl(doc.file_path, 3600)
+          if (signed?.signedUrl) docFilePaths[doc.id] = signed.signedUrl
+        }
+      }
+    }
+
+    let contextBlock = ''
     const contextParts: string[] = []
 
     if (chunks.length > 0) {
       const docContext =
         'The following excerpts are from the user\'s uploaded regulatory documents:\n\n' +
         chunks
-          .map((c: { document_name: string; content: string; similarity: number }) => {
+          .map((c: { document_id: string; document_name: string; content: string; similarity: number }) => {
             sources.push({
               document_name: c.document_name,
               content: c.content.slice(0, 300),
               similarity: c.similarity,
+              file_url: docFilePaths[c.document_id],
+              source_type: 'document',
             })
             return `[Document: ${c.document_name} | Relevance: ${Math.round(c.similarity * 100)}%]\n${c.content}`
           })
@@ -127,17 +156,31 @@ export const handler: Handler = async (event) => {
       const newsContext =
         'The following excerpts are from published AcceleraQA regulatory intelligence newsletters:\n\n' +
         newsletterChunks
-          .map((c: { content: string; similarity: number; draft_date: string }) => {
+          .map((c: { newsletter_draft_id: string; content: string; similarity: number; draft_date: string }) => {
             sources.push({
-              document_name: `Newsletter (${c.draft_date})`,
+              document_name: `Newsletter — ${c.draft_date}`,
               content: c.content.slice(0, 300),
               similarity: c.similarity,
+              source_type: 'newsletter',
+              newsletter_draft_id: c.newsletter_draft_id,
+              draft_date: c.draft_date,
             })
             return `[Newsletter: ${c.draft_date} | Relevance: ${Math.round(c.similarity * 100)}%]\n${c.content}`
           })
           .join('\n\n---\n\n')
       contextParts.push(newsContext)
     }
+
+    // Deduplicate sources by document name (keep highest similarity)
+    const deduped = Object.values(
+      sources.reduce<Record<string, Source>>((acc, s) => {
+        const key = s.document_name + (s.newsletter_draft_id ?? '')
+        if (!acc[key] || s.similarity > acc[key].similarity) acc[key] = s
+        return acc
+      }, {})
+    )
+    sources.length = 0
+    sources.push(...deduped)
 
     if (contextParts.length > 0) {
       contextBlock = '<regulatory_context>\n' + contextParts.join('\n\n') + '\n</regulatory_context>'
