@@ -7,9 +7,12 @@ import DocumentsPage from './pages/DocumentsPage'
 import ChatPage from './pages/ChatPage'
 import NewsPage from './pages/NewsPage'
 import AdminNewsPage from './pages/AdminNewsPage'
+import AdminUsersPage from './pages/AdminUsersPage'
+import PendingApprovalPage from './pages/PendingApprovalPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth()
+  const { user, profile, loading } = useAuth()
+
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-50">
@@ -17,7 +20,20 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
       </div>
     )
   }
-  return user ? <>{children}</> : <Navigate to="/auth" replace />
+
+  if (!user) return <Navigate to="/auth" replace />
+
+  // Profile not yet loaded (brief window after login)
+  if (!profile) return (
+    <div className="flex h-screen items-center justify-center bg-gray-50">
+      <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+    </div>
+  )
+
+  if (profile.status === 'pending')  return <PendingApprovalPage />
+  if (profile.status === 'rejected') return <PendingApprovalPage rejected />
+
+  return <>{children}</>
 }
 
 export default function App() {
@@ -45,6 +61,7 @@ export default function App() {
         <Route path="/documents" element={<DocumentsPage />} />
         <Route path="/query" element={<ChatPage />} />
         <Route path="/admin/news" element={<AdminNewsPage />} />
+        <Route path="/admin/users" element={<AdminUsersPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

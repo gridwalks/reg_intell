@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Newspaper,
   ShieldCheck,
+  Users,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -20,10 +21,11 @@ const nav = [
 
 const adminNav = [
   { to: '/admin/news', icon: ShieldCheck, label: 'News admin' },
+  { to: '/admin/users', icon: Users, label: 'Users' },
 ]
 
 export default function Layout() {
-  const { user, signOut } = useAuth()
+  const { user, isAdmin, signOut } = useAuth()
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -64,30 +66,32 @@ export default function Layout() {
             </NavLink>
           ))}
 
-          <div className="pt-3 mt-3 border-t border-blue-800">
-            <p className="text-blue-400 text-xs px-3 mb-1.5 uppercase tracking-wide font-medium">Admin</p>
-            {adminNav.map(({ to, icon: Icon, label }) => (
-              <NavLink
-                key={to}
-                to={to}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-blue-700 text-white'
-                      : 'text-blue-200 hover:bg-blue-800 hover:text-white'
-                  }`
-                }
-              >
-                {({ isActive }) => (
-                  <>
-                    <Icon className="w-4 h-4 shrink-0" />
-                    <span className="flex-1">{label}</span>
-                    {isActive && <ChevronRight className="w-3 h-3 opacity-60" />}
-                  </>
-                )}
-              </NavLink>
-            ))}
-          </div>
+          {isAdmin && (
+            <div className="pt-3 mt-3 border-t border-blue-800">
+              <p className="text-blue-400 text-xs px-3 mb-1.5 uppercase tracking-wide font-medium">Admin</p>
+              {adminNav.map(({ to, icon: Icon, label }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'bg-blue-700 text-white'
+                        : 'text-blue-200 hover:bg-blue-800 hover:text-white'
+                    }`
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      <Icon className="w-4 h-4 shrink-0" />
+                      <span className="flex-1">{label}</span>
+                      {isActive && <ChevronRight className="w-3 h-3 opacity-60" />}
+                    </>
+                  )}
+                </NavLink>
+              ))}
+            </div>
+          )}
         </nav>
 
         {/* User */}
