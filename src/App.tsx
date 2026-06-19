@@ -5,6 +5,8 @@ import AuthPage from './pages/AuthPage'
 import DashboardPage from './pages/DashboardPage'
 import DocumentsPage from './pages/DocumentsPage'
 import ChatPage from './pages/ChatPage'
+import NewsPage from './pages/NewsPage'
+import AdminNewsPage from './pages/AdminNewsPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -31,22 +33,20 @@ export default function App() {
 
   return (
     <Routes>
-      <Route
-        path="/auth"
-        element={user ? <Navigate to="/dashboard" replace /> : <AuthPage />}
-      />
-      <Route
-        element={
-          <ProtectedRoute>
-            <Layout />
-          </ProtectedRoute>
-        }
-      >
+      <Route path="/auth" element={user ? <Navigate to="/dashboard" replace /> : <AuthPage />} />
+
+      {/* Public news page — no auth required */}
+      <Route path="/news" element={<NewsPage />} />
+
+      {/* Protected app shell */}
+      <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/documents" element={<DocumentsPage />} />
         <Route path="/query" element={<ChatPage />} />
+        <Route path="/admin/news" element={<AdminNewsPage />} />
       </Route>
+
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   )
