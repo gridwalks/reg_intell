@@ -61,9 +61,6 @@ export default function App() {
     <Routes>
       <Route path="/auth" element={user ? <Navigate to="/query" replace /> : <AuthPage />} />
 
-      {/* Public news page — no auth required */}
-      <Route path="/news" element={<NewsPage />} />
-
       {/* Protected app shell */}
       <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         <Route index element={<Navigate to="/query" replace />} />
@@ -76,6 +73,7 @@ export default function App() {
 
         {/* All approved users */}
         <Route path="/query" element={<ChatPage />} />
+        <Route path="/news"  element={<NewsPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/query" replace />} />
