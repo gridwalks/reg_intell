@@ -180,7 +180,7 @@ export default function ChatPage() {
                 ) : (
                   <div className="bg-white border border-gray-200 rounded-2xl rounded-tl-sm px-5 py-4 shadow-sm">
                     <div className="prose-chat">
-                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      <CitedMarkdown content={msg.content} sources={msg.sources ?? []} onOpen={openDocument} />
                     </div>
                     {msg.sources && msg.sources.length > 0 && (
                       <SourcesPanel sources={msg.sources} onOpen={openDocument} />
@@ -330,6 +330,56 @@ export default function ChatPage() {
       )}
     </div>
   )
+}
+
+function CitedMarkdown({ content, sources, onOpen }: {
+  content: string
+  sources: Source[]
+  onOpen: (src: Source) => void
+}) {
+  // Split on citation markers like [1], [2], etc. and render them as superscript buttons
+  const parts = content.split(/(\[\d+\])/g)
+  const nodes: React.ReactNode[] = []
+  let textBuffer = ''
+
+  for (const part of parts) {
+    const match = part.match(/^\[(\d+)\]$/)
+    if (match) {
+      const idx = parseInt(match[1], 10) - 1
+      const src = sources[idx]
+      if (textBuffer) {
+        nodes.push(<ReactMarkdown key={nodes.length}>{textBuffer}</ReactMarkdown>)
+        textBuffer = ''
+      }
+      if (src) {
+        const isClickable = src.source_type === 'newsletter' || !!src.file_url
+        nodes.push(
+          <sup key={nodes.length}>
+            {isClickable ? (
+              <button
+                onClick={() => onOpen(src)}
+                className="inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold rounded-full bg-indigo-100 text-indigo-700 hover:bg-indigo-600 hover:text-white transition-colors mx-0.5 leading-none"
+                title={src.document_name}
+              >
+                {idx + 1}
+              </button>
+            ) : (
+              <span className="inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold rounded-full bg-gray-100 text-gray-500 mx-0.5 leading-none">
+                {idx + 1}
+              </span>
+            )}
+          </sup>
+        )
+      } else {
+        textBuffer += part
+      }
+    } else {
+      textBuffer += part
+    }
+  }
+  if (textBuffer) nodes.push(<ReactMarkdown key={nodes.length}>{textBuffer}</ReactMarkdown>)
+
+  return <>{nodes}</>
 }
 
 function SourcesPanel({ sources, onOpen }: { sources: Source[]; onOpen: (src: Source) => void }) {

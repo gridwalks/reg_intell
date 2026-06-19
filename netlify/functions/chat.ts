@@ -47,12 +47,13 @@ const SYSTEM_PROMPT = `You are RegIntel, an expert pharmaceutical regulatory int
 
 When answering:
 1. Prioritize information from the provided regulatory documents over general knowledge
-2. Cite specific sections, guidance numbers, or document names when relevant
-3. Clearly distinguish requirements by regulatory region/jurisdiction
-4. Flag differences between regions where applicable
-5. Note when guidance may have been updated and recommend verification against current versions
-6. Structure complex answers with clear headings and bullet points
-7. For critical regulatory decisions, recommend consultation with qualified regulatory affairs professionals
+2. When drawing on a provided source, cite it inline using its number, e.g. [1] or [2]. Place the citation directly after the relevant sentence or clause.
+3. Cite specific sections, guidance numbers, or document names when relevant
+4. Clearly distinguish requirements by regulatory region/jurisdiction
+5. Flag differences between regions where applicable
+6. Note when guidance may have been updated and recommend verification against current versions
+7. Structure complex answers with clear headings and bullet points
+8. For critical regulatory decisions, recommend consultation with qualified regulatory affairs professionals
 
 Always be precise, accurate, and practical for working regulatory professionals.`
 
@@ -183,7 +184,14 @@ export const handler: Handler = async (event) => {
     sources.push(...deduped)
 
     if (contextParts.length > 0) {
-      contextBlock = '<regulatory_context>\n' + contextParts.join('\n\n') + '\n</regulatory_context>'
+      // Number each source so the AI can cite them inline as [1], [2], etc.
+      const numberedContext = sources
+        .map((s, i) => `[${i + 1}] ${s.source_type === 'newsletter' ? 'Newsletter' : 'Document'}: ${s.document_name}\n${s.content}`)
+        .join('\n\n---\n\n')
+      contextBlock =
+        '<regulatory_context>\nThe following sources are available. Cite them inline in your answer using [1], [2], etc. when drawing on specific content.\n\n' +
+        numberedContext +
+        '\n</regulatory_context>'
     }
 
     const userContent = contextBlock ? `${contextBlock}\n\nQuestion: ${message}` : message
