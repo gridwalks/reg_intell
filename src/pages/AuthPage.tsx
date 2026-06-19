@@ -138,7 +138,7 @@ export default function AuthPage() {
                 />
                 <span className="text-sm text-gray-600">
                   I agree to the{' '}
-                  <a href="https://acceleraqa.io/terms" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">Terms of Use</a>
+                  <a href="https://acceleraqa.io/terms-of-use" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">Terms of Use</a>
                   {' '}and{' '}
                   <a href="https://acceleraqa.io/privacy" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">Privacy Policy</a>.
                 </span>
