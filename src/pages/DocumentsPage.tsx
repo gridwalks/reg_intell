@@ -12,6 +12,14 @@ import {
 import { supabase, type Document } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+async function hashFile(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer()
+  const digest = await crypto.subtle.digest('SHA-256', buffer)
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
 // ── Text extraction helpers ──────────────────────────────────────────────────
 
 async function extractPdfText(file: File): Promise<string> {
@@ -111,12 +119,29 @@ export default function DocumentsPage() {
     setJobs(prev => [...prev, { file, status: 'extracting', progress: 10 }])
 
     try {
-      // 1. Extract text client-side
+      // 1. Hash file and check for duplicate
+      const contentHash = await hashFile(file)
+      const { data: existing } = await supabase
+        .from('documents')
+        .select('id, name')
+        .eq('user_id', user.id)
+        .eq('content_hash', contentHash)
+        .maybeSingle()
+      if (existing) {
+        addJob({
+          status: 'error',
+          error: `Duplicate: this file has already been uploaded${existing.name !== file.name ? ` as "${existing.name}"` : ''}.`,
+          progress: 0,
+        })
+        return
+      }
+
+      // 2. Extract text client-side
       const text = await extractText(file)
       if (text.trim().length < 50) throw new Error('Could not extract enough text from this file.')
       addJob({ status: 'uploading', progress: 30 })
 
-      // 2. Upload raw file to Supabase Storage
+      // 3. Upload raw file to Supabase Storage
       const filePath = `${user.id}/${Date.now()}_${file.name}`
       const { error: storageErr } = await supabase.storage
         .from('regulatory-documents')
@@ -135,6 +160,7 @@ export default function DocumentsPage() {
           file_type: file.type,
           status: 'processing',
           extracted_text: text,
+          content_hash: contentHash,
         })
         .select()
         .single()
