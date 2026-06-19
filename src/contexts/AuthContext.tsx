@@ -63,25 +63,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    // Initialise from existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
       setUser(session?.user ?? null)
-      if (session?.user) await fetchProfile(session.user.id)
       setLoading(false)
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    // Keep auth state in sync — must stay synchronous
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
       setUser(session?.user ?? null)
-      if (session?.user) {
-        await fetchProfile(session.user.id)
-      } else {
-        setProfile(null)
-      }
+      if (!session?.user) setProfile(null)
     })
 
     return () => subscription.unsubscribe()
   }, [])
+
+  // Load profile whenever user changes
+  useEffect(() => {
+    if (user) fetchProfile(user.id)
+  }, [user?.id])
 
   const signOut = async () => {
     await supabase.auth.signOut()
