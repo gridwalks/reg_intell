@@ -67,6 +67,7 @@ async function extractText(file: File): Promise<string> {
 // ── Component ────────────────────────────────────────────────────────────────
 
 type UploadJob = {
+  id: string
   file: File
   status: 'extracting' | 'uploading' | 'embedding' | 'done' | 'error'
   error?: string
@@ -158,19 +159,15 @@ export default function DocumentsPage() {
     const ACCEPTED = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain', 'text/markdown']
     const isAccepted = ACCEPTED.includes(file.type) || file.name.match(/\.(pdf|docx|txt|md)$/i)
     if (!isAccepted) {
-      setJobs(j => [...j, { file, status: 'error', error: 'Unsupported file type', progress: 0 }])
+      setJobs(j => [...j, { id: crypto.randomUUID(), file, status: 'error', error: 'Unsupported file type', progress: 0 }])
       return
     }
 
-    const jobIdx = jobs.length
+    const jobId = crypto.randomUUID()
     const addJob = (update: Partial<UploadJob>) =>
-      setJobs(prev => {
-        const next = [...prev]
-        next[jobIdx] = { ...next[jobIdx], ...update } as UploadJob
-        return next
-      })
+      setJobs(prev => prev.map(j => j.id === jobId ? { ...j, ...update } : j))
 
-    setJobs(prev => [...prev, { file, status: 'extracting', progress: 10 }])
+    setJobs(prev => [...prev, { id: jobId, file, status: 'extracting', progress: 10 }])
 
     try {
       // 1. Hash file and check for duplicate
@@ -293,8 +290,8 @@ export default function DocumentsPage() {
       {/* Active upload jobs */}
       {jobs.length > 0 && (
         <div className="space-y-2 mb-6">
-          {jobs.map((job, i) => (
-            <div key={i} className="bg-white border border-gray-200 rounded-xl px-4 py-3">
+          {jobs.map((job) => (
+            <div key={job.id} className="bg-white border border-gray-200 rounded-xl px-4 py-3">
               <div className="flex items-center gap-3">
                 <FileText className="w-4 h-4 text-gray-400 shrink-0" />
                 <p className="text-sm font-medium text-gray-800 flex-1 truncate">{job.file.name}</p>
@@ -307,7 +304,7 @@ export default function DocumentsPage() {
                     {job.status === 'embedding' && 'Generating embeddings…'}
                   </span>
                 )}
-                <button onClick={() => setJobs(j => j.filter((_, idx) => idx !== i))}>
+                <button onClick={() => setJobs(j => j.filter(x => x.id !== job.id))}>
                   <X className="w-4 h-4 text-gray-300 hover:text-gray-500" />
                 </button>
               </div>
