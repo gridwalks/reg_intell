@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Rocket, AlertCircle, CheckCircle } from 'lucide-react'
+import { AlertCircle, CheckCircle } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 export default function UpdatePasswordPage() {
@@ -30,11 +30,10 @@ export default function UpdatePasswordPage() {
     <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%)' }}>
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-white/10 rounded-2xl mb-4 backdrop-blur-sm border border-white/20">
-            <Rocket className="w-8 h-8 text-white" />
+          <div className="inline-flex items-center justify-center bg-white rounded-2xl px-6 py-4 mb-4 shadow-lg">
+            <img src="/logo.png" alt="AcceleraQA" className="h-12 w-auto" />
           </div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">AcceleraQA</h1>
-          <p className="text-indigo-200 mt-1 text-sm">Regulatory Intelligence Platform</p>
+          <p className="text-indigo-200 mt-2 text-sm">Regulatory Intelligence Platform</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-2xl p-8">

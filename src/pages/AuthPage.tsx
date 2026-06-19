@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { Shield, Rocket, AlertCircle } from 'lucide-react'
+import { Shield, AlertCircle } from 'lucide-react'
 
 export default function AuthPage() {
   const [mode, setMode] = useState<'login' | 'signup' | 'reset'>('login')
@@ -47,11 +47,10 @@ export default function AuthPage() {
 
         {/* Brand */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-white/10 rounded-2xl mb-4 backdrop-blur-sm border border-white/20">
-            <Rocket className="w-8 h-8 text-white" />
+          <div className="inline-flex items-center justify-center bg-white rounded-2xl px-6 py-4 mb-4 shadow-lg">
+            <img src="/logo.png" alt="AcceleraQA" className="h-12 w-auto" />
           </div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">AcceleraQA</h1>
-          <p className="text-indigo-200 mt-1 text-sm">Regulatory Intelligence Platform</p>
+          <p className="text-indigo-200 mt-2 text-sm">Regulatory Intelligence Platform</p>
         </div>
 
         {/* Card */}
