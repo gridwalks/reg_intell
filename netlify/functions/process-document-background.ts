@@ -3,10 +3,12 @@ import { createClient } from '@supabase/supabase-js'
 import OpenAI from 'openai'
 
 function getSupabaseUrl(): string {
+  // Try to derive from Netlify Supabase integration DATABASE_URL
   const dbUrl = process.env.SUPABASE_DATABASE_URL ?? ''
   const match = dbUrl.match(/postgres\.([^:@]+)[^@]*@/)
   if (match) return `https://${match[1]}.supabase.co`
-  return process.env.SUPABASE_URL ?? ''
+  // Fall back to the manually-added VITE_ var (accessible in functions at runtime)
+  return process.env.VITE_SUPABASE_URL ?? process.env.SUPABASE_URL ?? ''
 }
 
 const supabase = createClient(
@@ -58,11 +60,14 @@ function chunkText(text: string, chunkSize = 1200, overlap = 200): string[] {
 }
 
 export const handler: BackgroundHandler = async (event) => {
+  const supabaseUrl = getSupabaseUrl()
+  console.log('[process-document-background] supabase url:', supabaseUrl || 'EMPTY — check env vars')
+
   const token = event.headers.authorization?.replace('Bearer ', '')
-  if (!token) return
+  if (!token) { console.log('[process-document-background] no token'); return }
 
   const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-  if (authError || !user) return
+  if (authError || !user) { console.log('[process-document-background] auth failed:', authError?.message); return }
 
   let document_id: string | undefined
   try {

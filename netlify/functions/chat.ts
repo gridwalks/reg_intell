@@ -8,7 +8,7 @@ function getSupabaseUrl(): string {
   const dbUrl = process.env.SUPABASE_DATABASE_URL ?? ''
   const match = dbUrl.match(/postgres\.([^:@]+)[^@]*@/)
   if (match) return `https://${match[1]}.supabase.co`
-  return process.env.SUPABASE_URL ?? ''
+  return process.env.VITE_SUPABASE_URL ?? process.env.SUPABASE_URL ?? ''
 }
 
 const supabase = createClient(getSupabaseUrl(), process.env.SUPABASE_SERVICE_ROLE_KEY!)
