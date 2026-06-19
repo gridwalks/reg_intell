@@ -10,6 +10,7 @@ import NewsPage from './pages/NewsPage'
 import AdminNewsPage from './pages/AdminNewsPage'
 import AdminUsersPage from './pages/AdminUsersPage'
 import PendingApprovalPage from './pages/PendingApprovalPage'
+import UpdatePasswordPage from './pages/UpdatePasswordPage'
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user, profile, loading } = useAuth()
@@ -34,7 +35,7 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
 }
 
 export default function App() {
-  const { user, loading } = useAuth()
+  const { user, loading, needsPasswordReset } = useAuth()
 
   if (loading) {
     return (
@@ -43,6 +44,9 @@ export default function App() {
       </div>
     )
   }
+
+  // Recovery link clicked — show password update form before anything else
+  if (needsPasswordReset) return <UpdatePasswordPage />
 
   return (
     <Routes>

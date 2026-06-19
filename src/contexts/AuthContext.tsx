@@ -24,6 +24,7 @@ type AuthContextType = {
   profile: Profile | null
   isAdmin: boolean
   loading: boolean
+  needsPasswordReset: boolean
   signOut: () => Promise<void>
   reloadProfile: () => Promise<void>
 }
@@ -34,6 +35,7 @@ const AuthContext = createContext<AuthContextType>({
   profile: null,
   isAdmin: false,
   loading: true,
+  needsPasswordReset: false,
   signOut: async () => {},
   reloadProfile: async () => {},
 })
@@ -43,6 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
+  const [needsPasswordReset, setNeedsPasswordReset] = useState(false)
 
   const fetchProfile = async (userId: string) => {
     try {
@@ -71,10 +74,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
 
     // Keep auth state in sync — must stay synchronous
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session)
       setUser(session?.user ?? null)
       if (!session?.user) setProfile(null)
+      if (event === 'PASSWORD_RECOVERY') setNeedsPasswordReset(true)
     })
 
     return () => subscription.unsubscribe()
@@ -96,6 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profile,
       isAdmin: profile?.is_admin ?? false,
       loading,
+      needsPasswordReset,
       signOut,
       reloadProfile,
     }}>
