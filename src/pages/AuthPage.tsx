@@ -25,7 +25,7 @@ export default function AuthPage() {
           options: { data: { full_name: fullName } },
         })
         if (error) throw error
-        setInfo('Check your email for a confirmation link.')
+        setInfo('Account created. You can now sign in.')
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) throw error
