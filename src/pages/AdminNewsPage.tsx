@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import {
   CheckCircle, Trash2, Edit3, Eye, AlertTriangle,
-  ChevronDown, ChevronUp, ExternalLink, RefreshCw,
+  ChevronDown, ChevronUp, ExternalLink, RefreshCw, Play,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../contexts/AuthContext'
 
 type Draft = {
   id: string
@@ -40,6 +41,7 @@ type Source = {
 }
 
 export default function AdminNewsPage() {
+  const { session } = useAuth()
   const [drafts, setDrafts] = useState<Draft[]>([])
   const [articles, setArticles] = useState<Article[]>([])
   const [sources, setSources] = useState<Source[]>([])
@@ -48,11 +50,44 @@ export default function AdminNewsPage() {
   const [showArticles, setShowArticles] = useState(false)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
+  const [triggering, setTriggering] = useState(false)
+  const [triggerCountdown, setTriggerCountdown] = useState(0)
   const formRef = useRef<{
     intro: string; sponsor: string; vendor: string
   } | null>(null)
 
   useEffect(() => { loadDrafts(); loadSources() }, [])
+
+  const triggerPipeline = async () => {
+    if (!session || triggering) return
+    setTriggering(true)
+    setMsg('')
+    try {
+      await fetch('/.netlify/functions/trigger-newsletter-background', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      // Background function returns 202 — poll for new draft every 15s for up to 3 min
+      let elapsed = 0
+      const POLL_INTERVAL = 15
+      const MAX_WAIT = 180
+      setTriggerCountdown(MAX_WAIT - elapsed)
+      const interval = setInterval(async () => {
+        elapsed += POLL_INTERVAL
+        setTriggerCountdown(MAX_WAIT - elapsed)
+        await loadDrafts()
+        if (elapsed >= MAX_WAIT) {
+          clearInterval(interval)
+          setTriggering(false)
+          setTriggerCountdown(0)
+          setMsg('Pipeline complete. Refresh if draft is not visible.')
+        }
+      }, POLL_INTERVAL * 1000)
+    } catch {
+      setMsg('Failed to trigger pipeline.')
+      setTriggering(false)
+    }
+  }
 
   const loadDrafts = async () => {
     const { data } = await supabase
@@ -147,11 +182,30 @@ export default function AdminNewsPage() {
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">News admin</h1>
-        <p className="text-gray-500 text-sm mt-1">
-          Review and approve daily newsletter drafts before they publish to the News page.
-        </p>
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">News admin</h1>
+          <p className="text-gray-500 text-sm mt-1">
+            Review and approve daily newsletter drafts before they publish to the News page.
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-1.5">
+          <button
+            onClick={triggerPipeline}
+            disabled={triggering}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            {triggering
+              ? <RefreshCw className="w-4 h-4 animate-spin" />
+              : <Play className="w-4 h-4" />}
+            {triggering ? 'Pipeline running...' : 'Run pipeline now'}
+          </button>
+          {triggering && triggerCountdown > 0 && (
+            <p className="text-xs text-gray-400">
+              Checking for draft... {triggerCountdown}s remaining
+            </p>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-[240px_1fr] gap-6">
