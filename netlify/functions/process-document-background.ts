@@ -85,36 +85,49 @@ export const handler: BackgroundHandler = async (event) => {
       .single()
     if (docErr || !doc) return
 
-    const text: string = doc.extracted_text ?? ''
+    const rawText: string = doc.extracted_text ?? ''
+    // Strip null bytes and control characters that break PostgreSQL JSON encoding
+    const text = rawText.replace(/\x00/g, '').replace(/[\x01-\x08\x0b\x0c\x0e-\x1f\x7f]/g, ' ')
+
     if (text.trim().length < 50) {
       await supabase.from('documents').update({ status: 'error', processing_error: 'Extracted text too short — PDF may be scanned or empty.' }).eq('id', document_id)
       return
     }
+    console.log(`[process-document] text length=${text.length}`)
 
     const chunks = chunkText(text)
-    const BATCH = 20
+    console.log(`[process-document] chunks=${chunks.length}`)
+    const BATCH = 10
     let stored = 0
 
     for (let i = 0; i < chunks.length; i += BATCH) {
       const batch = chunks.slice(i, i + BATCH)
+      console.log(`[process-document] embedding batch ${i}–${i + batch.length}`)
 
-      const { data: embedData } = await openai.embeddings.create({
+      const embedResp = await openai.embeddings.create({
         model: 'text-embedding-3-small',
         input: batch,
       })
+      console.log(`[process-document] got ${embedResp.data.length} embeddings`)
 
       const rows = batch.map((content, j) => ({
         document_id,
-        content,
-        embedding: embedData[j].embedding,
+        // Sanitize each chunk as well
+        content: content.replace(/\x00/g, '').replace(/[\x01-\x08\x0b\x0c\x0e-\x1f\x7f]/g, ' '),
+        embedding: embedResp.data[j].embedding,
         chunk_index: i + j,
       }))
 
+      console.log(`[process-document] inserting batch ${i}`)
       const { error: insertErr } = await supabase
         .from('document_chunks')
         .insert(rows)
-      if (insertErr) throw insertErr
+      if (insertErr) {
+        console.error(`[process-document] insert error at batch ${i}:`, JSON.stringify(insertErr))
+        throw insertErr
+      }
       stored += batch.length
+      console.log(`[process-document] stored ${stored} chunks so far`)
     }
 
     await supabase
@@ -125,7 +138,7 @@ export const handler: BackgroundHandler = async (event) => {
     const msg = err instanceof Error
       ? err.message
       : (typeof err === 'object' && err !== null && 'message' in err)
-        ? String((err as { message: unknown }).message)
+        ? `${(err as { message: unknown }).message} | ${JSON.stringify(err)}`
         : JSON.stringify(err)
     console.error('process-document-background error:', JSON.stringify(err))
     if (document_id) {
