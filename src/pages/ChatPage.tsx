@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { Send, Loader2, BookOpen, AlertTriangle, Bot, User, Sparkles, X, FileText, Newspaper, ExternalLink } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
@@ -337,24 +337,22 @@ function CitedMarkdown({ content, sources, onOpen }: {
   sources: Source[]
   onOpen: (src: Source) => void
 }) {
-  // Split on citation markers like [1], [2], etc. and render them as superscript buttons
-  const parts = content.split(/(\[\d+\])/g)
-  const nodes: React.ReactNode[] = []
-  let textBuffer = ''
-
-  for (const part of parts) {
-    const match = part.match(/^\[(\d+)\]$/)
-    if (match) {
-      const idx = parseInt(match[1], 10) - 1
-      const src = sources[idx]
-      if (textBuffer) {
-        nodes.push(<ReactMarkdown key={nodes.length}>{textBuffer}</ReactMarkdown>)
-        textBuffer = ''
-      }
-      if (src) {
+  // Inject citation buttons into text nodes without breaking markdown structure.
+  // We render one ReactMarkdown and override block-level components to
+  // post-process their children, substituting [N] markers inline.
+  const injectCitations = (node: React.ReactNode): React.ReactNode => {
+    if (typeof node === 'string') {
+      const parts = node.split(/(\[\d+\])/g)
+      if (parts.length === 1) return node
+      return parts.map((part, i) => {
+        const m = part.match(/^\[(\d+)\]$/)
+        if (!m) return part
+        const idx = parseInt(m[1], 10) - 1
+        const src = sources[idx]
+        if (!src) return part
         const isClickable = src.source_type === 'newsletter' || !!src.file_url
-        nodes.push(
-          <sup key={nodes.length}>
+        return (
+          <sup key={i}>
             {isClickable ? (
               <button
                 onClick={() => onOpen(src)}
@@ -370,16 +368,29 @@ function CitedMarkdown({ content, sources, onOpen }: {
             )}
           </sup>
         )
-      } else {
-        textBuffer += part
-      }
-    } else {
-      textBuffer += part
+      })
     }
+    if (React.isValidElement(node) && node.props.children) {
+      return React.cloneElement(
+        node as React.ReactElement<{ children?: React.ReactNode }>,
+        {},
+        React.Children.map(node.props.children, injectCitations),
+      )
+    }
+    return node
   }
-  if (textBuffer) nodes.push(<ReactMarkdown key={nodes.length}>{textBuffer}</ReactMarkdown>)
 
-  return <>{nodes}</>
+  const wrap = (Tag: keyof React.JSX.IntrinsicElements) =>
+    ({ children, ...props }: { children?: React.ReactNode; [k: string]: unknown }) =>
+      <Tag {...(props as object)}>{React.Children.map(children, injectCitations)}</Tag>
+
+  const components = {
+    p: wrap('p'), li: wrap('li'),
+    h1: wrap('h1'), h2: wrap('h2'), h3: wrap('h3'), h4: wrap('h4'),
+    td: wrap('td'), th: wrap('th'),
+  }
+
+  return <ReactMarkdown components={components}>{content}</ReactMarkdown>
 }
 
 function SourcesPanel({ sources, onOpen }: { sources: Source[]; onOpen: (src: Source) => void }) {
