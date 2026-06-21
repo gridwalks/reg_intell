@@ -380,14 +380,15 @@ function CitedMarkdown({ content, sources, onOpen }: {
     return node
   }
 
-  const wrap = (Tag: keyof React.JSX.IntrinsicElements) =>
-    ({ children, ...props }: { children?: React.ReactNode; [k: string]: unknown }) =>
-      <Tag {...(props as object)}>{React.Children.map(children, injectCitations)}</Tag>
-
-  const components = {
-    p: wrap('p'), li: wrap('li'),
-    h1: wrap('h1'), h2: wrap('h2'), h3: wrap('h3'), h4: wrap('h4'),
-    td: wrap('td'), th: wrap('th'),
+  const components: import('react-markdown').Components = {
+    p:  ({ children }) => <p>{React.Children.map(children, injectCitations)}</p>,
+    li: ({ children }) => <li>{React.Children.map(children, injectCitations)}</li>,
+    h1: ({ children }) => <h1>{React.Children.map(children, injectCitations)}</h1>,
+    h2: ({ children }) => <h2>{React.Children.map(children, injectCitations)}</h2>,
+    h3: ({ children }) => <h3>{React.Children.map(children, injectCitations)}</h3>,
+    h4: ({ children }) => <h4>{React.Children.map(children, injectCitations)}</h4>,
+    td: ({ children }) => <td>{React.Children.map(children, injectCitations)}</td>,
+    th: ({ children }) => <th>{React.Children.map(children, injectCitations)}</th>,
   }
 
   return <ReactMarkdown components={components}>{content}</ReactMarkdown>
