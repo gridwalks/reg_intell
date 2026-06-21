@@ -122,8 +122,12 @@ export const handler: BackgroundHandler = async (event) => {
       .update({ status: 'ready', chunk_count: stored, extracted_text: null })
       .eq('id', document_id)
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.error('process-document-background error:', msg)
+    const msg = err instanceof Error
+      ? err.message
+      : (typeof err === 'object' && err !== null && 'message' in err)
+        ? String((err as { message: unknown }).message)
+        : JSON.stringify(err)
+    console.error('process-document-background error:', JSON.stringify(err))
     if (document_id) {
       await supabase
         .from('documents')
