@@ -18,6 +18,22 @@ const supabase = createClient(
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! })
 
+function sanitizeText(s: string): string {
+  return s
+    .replace(/\x00/g, '')
+    .replace(/[\x01-\x08\x0b\x0c\x0e-\x1f\x7f]/g, ' ')
+    // Remove lone Unicode surrogates (U+D800–U+DFFF) that break PostgreSQL JSON
+    .replace(/[\uD800-\uDFFF]/g, (ch, offset, str) => {
+      const code = ch.charCodeAt(0)
+      if (code >= 0xD800 && code <= 0xDBFF) {
+        const next = str.charCodeAt(offset + 1)
+        return (next >= 0xDC00 && next <= 0xDFFF) ? ch : ''
+      }
+      const prev = str.charCodeAt(offset - 1)
+      return (prev >= 0xD800 && prev <= 0xDBFF) ? ch : ''
+    })
+}
+
 function chunkText(text: string, chunkSize = 1200, overlap = 200): string[] {
   const chunks: string[] = []
   const paragraphs = text.split(/\n{2,}/)
@@ -86,8 +102,7 @@ export const handler: BackgroundHandler = async (event) => {
     if (docErr || !doc) return
 
     const rawText: string = doc.extracted_text ?? ''
-    // Strip null bytes and control characters that break PostgreSQL JSON encoding
-    const text = rawText.replace(/\x00/g, '').replace(/[\x01-\x08\x0b\x0c\x0e-\x1f\x7f]/g, ' ')
+    const text = sanitizeText(rawText)
 
     if (text.trim().length < 50) {
       await supabase.from('documents').update({ status: 'error', processing_error: 'Extracted text too short — PDF may be scanned or empty.' }).eq('id', document_id)
@@ -113,7 +128,7 @@ export const handler: BackgroundHandler = async (event) => {
       const rows = batch.map((content, j) => ({
         document_id,
         // Sanitize each chunk as well
-        content: content.replace(/\x00/g, '').replace(/[\x01-\x08\x0b\x0c\x0e-\x1f\x7f]/g, ' '),
+        content: sanitizeText(content),
         embedding: embedResp.data[j].embedding,
         chunk_index: i + j,
       }))

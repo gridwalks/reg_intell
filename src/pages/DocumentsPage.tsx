@@ -194,7 +194,18 @@ export default function DocumentsPage() {
       const text = await extractText(file)
       if (text.trim().length < 50) throw new Error('Could not extract enough text from this file.')
       // Strip null bytes and control characters that break PostgreSQL JSON encoding
-      const cleanText = text.replace(/\x00/g, '').replace(/[\x01-\x08\x0b\x0c\x0e-\x1f]/g, ' ')
+      const cleanText = text
+        .replace(/\x00/g, '')
+        .replace(/[\x01-\x08\x0b\x0c\x0e-\x1f\x7f]/g, ' ')
+        .replace(/[\uD800-\uDFFF]/g, (ch, offset, str) => {
+          const code = ch.charCodeAt(0)
+          if (code >= 0xD800 && code <= 0xDBFF) {
+            const next = str.charCodeAt(offset + 1)
+            return (next >= 0xDC00 && next <= 0xDFFF) ? ch : ''
+          }
+          const prev = str.charCodeAt(offset - 1)
+          return (prev >= 0xD800 && prev <= 0xDBFF) ? ch : ''
+        })
       addJob({ status: 'uploading', progress: 30 })
 
       // 3. Upload raw file to Supabase Storage
