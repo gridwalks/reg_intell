@@ -193,6 +193,8 @@ export default function DocumentsPage() {
       // 2. Extract text client-side
       const text = await extractText(file)
       if (text.trim().length < 50) throw new Error('Could not extract enough text from this file.')
+      // Strip null bytes and control characters that break PostgreSQL JSON encoding
+      const cleanText = text.replace(/\x00/g, '').replace(/[\x01-\x08\x0b\x0c\x0e-\x1f]/g, ' ')
       addJob({ status: 'uploading', progress: 30 })
 
       // 3. Upload raw file to Supabase Storage
@@ -213,7 +215,7 @@ export default function DocumentsPage() {
           file_size: file.size,
           file_type: file.type,
           status: 'processing',
-          extracted_text: text,
+          extracted_text: cleanText,
           content_hash: contentHash,
         })
         .select()
