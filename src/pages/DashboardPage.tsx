@@ -1,207 +1,256 @@
-import { useEffect, useState, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
-import { FileText, MessageSquare, CheckCircle, Clock, AlertTriangle, ArrowRight } from 'lucide-react'
-import { supabase, type Document } from '../lib/supabase'
+import { useEffect, useState } from 'react'
+import {
+  Database, HardDrive, Users, FileText, Layers,
+  Newspaper, Rss, RefreshCw, AlertTriangle, CheckCircle, Clock,
+  UserCheck,
+} from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
+type TableSize = { table_name: string; row_count: number; size_bytes: number }
+
+type HealthData = {
+  db_size_bytes: number
+  storage_size_bytes: number
+  documents: { total: number; ready: number; processing: number; error: number }
+  chunk_count: number
+  user_count: number
+  pending_users: number
+  newsletter_count: number
+  news_article_count: number
+  table_sizes: TableSize[]
+  fetched_at: string
+}
+
+function fmtBytes(bytes: number): string {
+  if (bytes >= 1_073_741_824) return `${(bytes / 1_073_741_824).toFixed(2)} GB`
+  if (bytes >= 1_048_576)     return `${(bytes / 1_048_576).toFixed(1)} MB`
+  if (bytes >= 1_024)         return `${(bytes / 1_024).toFixed(0)} KB`
+  return `${bytes} B`
+}
+
+function pct(used: number, limit: number) {
+  return Math.min(100, Math.round((used / limit) * 100))
+}
+
 export default function DashboardPage() {
-  const { user } = useAuth()
-  const [docs, setDocs] = useState<Document[]>([])
+  const { session } = useAuth()
+  const [data, setData] = useState<HealthData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
-  useEffect(() => {
-    if (!user) return
-    supabase
-      .from('documents')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        setDocs(data ?? [])
-        setLoading(false)
+  const fetchHealth = async () => {
+    if (!session) return
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetch('/.netlify/functions/system-health', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
       })
-  }, [user])
-
-  const ready = docs.filter(d => d.status === 'ready').length
-  const processing = docs.filter(d => d.status === 'processing').length
-  const errored = docs.filter(d => d.status === 'error').length
-  const totalChunks = docs.reduce((sum, d) => sum + (d.chunk_count ?? 0), 0)
-
-  const greeting = () => {
-    const hour = new Date().getHours()
-    if (hour < 12) return 'Good morning'
-    if (hour < 17) return 'Good afternoon'
-    return 'Good evening'
+      if (!res.ok) throw new Error(await res.text())
+      setData(await res.json())
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load metrics')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const firstName = user?.user_metadata?.full_name?.split(' ')[0] ?? 'there'
+  useEffect(() => { fetchHealth() }, [session])
+
+  const DB_LIMIT  = 0.5 * 1_073_741_824   // 0.5 GB free tier
+  const STG_LIMIT = 1.0 * 1_073_741_824   // 1 GB free tier
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">
-          {greeting()}, {firstName}
-        </h1>
-        <p className="text-gray-500 mt-1">
-          Your regulatory intelligence workspace is ready.
-        </p>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard
-          icon={<FileText className="w-5 h-5 text-blue-600" />}
-          label="Total Documents"
-          value={docs.length}
-          bg="bg-blue-50"
-        />
-        <StatCard
-          icon={<CheckCircle className="w-5 h-5 text-green-600" />}
-          label="Ready to Query"
-          value={ready}
-          bg="bg-green-50"
-        />
-        <StatCard
-          icon={<Clock className="w-5 h-5 text-amber-600" />}
-          label="Processing"
-          value={processing}
-          bg="bg-amber-50"
-        />
-        <StatCard
-          icon={<MessageSquare className="w-5 h-5 text-purple-600" />}
-          label="Knowledge Chunks"
-          value={totalChunks.toLocaleString()}
-          bg="bg-purple-50"
-        />
-      </div>
-
-      {/* Quick actions */}
-      <div className="grid md:grid-cols-2 gap-4 mb-8">
-        <QuickAction
-          to="/documents"
-          icon={<FileText className="w-6 h-6 text-blue-700" />}
-          title="Upload Documents"
-          description="Add FDA guidances, ICH guidelines, SOPs, or any regulatory document to your knowledge base."
-          bg="bg-blue-50 border-blue-200"
-          textColor="text-blue-700"
-        />
-        <QuickAction
-          to="/query"
-          icon={<MessageSquare className="w-6 h-6 text-purple-700" />}
-          title="Intelligence Query"
-          description="Ask regulatory questions and get AI-powered answers grounded in your uploaded documents."
-          bg="bg-purple-50 border-purple-200"
-          textColor="text-purple-700"
-        />
-      </div>
-
-      {/* Recent documents */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">Recent Documents</h2>
-          <Link
-            to="/documents"
-            className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
-          >
-            View all <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">System Health</h1>
+          <p className="text-gray-500 mt-1 text-sm">
+            Live Supabase usage metrics
+            {data && (
+              <span className="ml-2 text-gray-400">
+                — last updated {new Date(data.fetched_at).toLocaleTimeString()}
+              </span>
+            )}
+          </p>
         </div>
-
-        {loading ? (
-          <div className="text-gray-400 text-sm">Loading…</div>
-        ) : docs.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-300">
-            <FileText className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500 text-sm">No documents yet.</p>
-            <Link
-              to="/documents"
-              className="mt-3 inline-block text-sm text-blue-600 hover:underline"
-            >
-              Upload your first document →
-            </Link>
-          </div>
-        ) : (
-          <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
-            {docs.slice(0, 5).map(doc => (
-              <div key={doc.id} className="flex items-center gap-4 px-4 py-3">
-                <FileText className="w-5 h-5 text-gray-400 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{doc.name}</p>
-                  <p className="text-xs text-gray-400">
-                    {new Date(doc.created_at).toLocaleDateString()} ·{' '}
-                    {doc.chunk_count > 0 ? `${doc.chunk_count} chunks` : '—'}
-                  </p>
-                </div>
-                <StatusBadge status={doc.status} />
-              </div>
-            ))}
-          </div>
-        )}
-
-        {errored > 0 && (
-          <div className="mt-3 flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-            <AlertTriangle className="w-4 h-4 shrink-0" />
-            {errored} document{errored > 1 ? 's' : ''} failed to process. Try re-uploading.
-          </div>
-        )}
+        <button
+          onClick={fetchHealth}
+          disabled={loading}
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+        >
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
+        </button>
       </div>
+
+      {error && (
+        <div className="flex items-center gap-2 text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm mb-6">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          {error}
+        </div>
+      )}
+
+      {loading && !data && (
+        <div className="text-gray-400 text-sm">Loading metrics…</div>
+      )}
+
+      {data && (
+        <div className="space-y-6">
+
+          {/* ── Supabase plan usage ── */}
+          <section>
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Plan Usage</h2>
+            <div className="grid md:grid-cols-2 gap-4">
+              <UsageBar
+                icon={<Database className="w-4 h-4 text-indigo-600" />}
+                label="Database Size"
+                used={data.db_size_bytes}
+                limit={DB_LIMIT}
+                limitLabel="0.5 GB free tier"
+              />
+              <UsageBar
+                icon={<HardDrive className="w-4 h-4 text-indigo-600" />}
+                label="Storage Size"
+                used={data.storage_size_bytes}
+                limit={STG_LIMIT}
+                limitLabel="1 GB free tier"
+              />
+            </div>
+          </section>
+
+          {/* ── Content counts ── */}
+          <section>
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Content</h2>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <MetricCard
+                icon={<FileText className="w-5 h-5 text-blue-600" />}
+                label="Documents"
+                value={data.documents.total}
+                bg="bg-blue-50"
+                sub={
+                  <span className="flex gap-2 mt-1">
+                    <span className="text-green-600">{data.documents.ready} ready</span>
+                    {data.documents.processing > 0 && <span className="text-amber-600">{data.documents.processing} processing</span>}
+                    {data.documents.error > 0 && <span className="text-red-600">{data.documents.error} error</span>}
+                  </span>
+                }
+              />
+              <MetricCard
+                icon={<Layers className="w-5 h-5 text-purple-600" />}
+                label="Knowledge Chunks"
+                value={data.chunk_count.toLocaleString()}
+                bg="bg-purple-50"
+              />
+              <MetricCard
+                icon={<Newspaper className="w-5 h-5 text-teal-600" />}
+                label="Newsletters Published"
+                value={data.newsletter_count}
+                bg="bg-teal-50"
+              />
+              <MetricCard
+                icon={<Rss className="w-5 h-5 text-orange-600" />}
+                label="News Articles Ingested"
+                value={data.news_article_count.toLocaleString()}
+                bg="bg-orange-50"
+              />
+            </div>
+          </section>
+
+          {/* ── Users ── */}
+          <section>
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Users</h2>
+            <div className="grid grid-cols-2 gap-4 max-w-sm">
+              <MetricCard
+                icon={<Users className="w-5 h-5 text-indigo-600" />}
+                label="Total Users"
+                value={data.user_count}
+                bg="bg-indigo-50"
+              />
+              <MetricCard
+                icon={data.pending_users > 0
+                  ? <Clock className="w-5 h-5 text-amber-600" />
+                  : <UserCheck className="w-5 h-5 text-green-600" />}
+                label="Pending Approval"
+                value={data.pending_users}
+                bg={data.pending_users > 0 ? 'bg-amber-50' : 'bg-green-50'}
+              />
+            </div>
+          </section>
+
+          {/* ── Table sizes ── */}
+          {data.table_sizes.length > 0 && (
+            <section>
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Table Breakdown</h2>
+              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Table</th>
+                      <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Rows (est.)</th>
+                      <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Size</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {data.table_sizes.map(t => (
+                      <tr key={t.table_name} className="hover:bg-gray-50">
+                        <td className="px-4 py-2.5 font-mono text-xs text-gray-700">{t.table_name}</td>
+                        <td className="px-4 py-2.5 text-right text-xs text-gray-600">{Number(t.row_count).toLocaleString()}</td>
+                        <td className="px-4 py-2.5 text-right text-xs text-gray-600">{fmtBytes(Number(t.size_bytes))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+        </div>
+      )}
     </div>
   )
 }
 
-function StatCard({
-  icon, label, value, bg,
-}: {
-  icon: ReactNode
+function MetricCard({ icon, label, value, bg, sub }: {
+  icon: React.ReactNode
   label: string
   value: number | string
   bg: string
+  sub?: React.ReactNode
 }) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-4">
       <div className={`inline-flex p-2 rounded-lg ${bg} mb-3`}>{icon}</div>
       <p className="text-2xl font-bold text-gray-900">{value}</p>
       <p className="text-xs text-gray-500 mt-0.5">{label}</p>
+      {sub && <div className="text-xs mt-1">{sub}</div>}
     </div>
   )
 }
 
-function QuickAction({
-  to, icon, title, description, bg, textColor,
-}: {
-  to: string
-  icon: ReactNode
-  title: string
-  description: string
-  bg: string
-  textColor: string
+function UsageBar({ icon, label, used, limit, limitLabel }: {
+  icon: React.ReactNode
+  label: string
+  used: number
+  limit: number
+  limitLabel: string
 }) {
+  const p = pct(used, limit)
+  const color = p >= 90 ? 'bg-red-500' : p >= 70 ? 'bg-amber-500' : 'bg-indigo-500'
   return (
-    <Link
-      to={to}
-      className={`block p-5 rounded-xl border ${bg} hover:shadow-md transition-shadow`}
-    >
-      <div className="flex items-start gap-3">
-        <div className="shrink-0 mt-0.5">{icon}</div>
-        <div>
-          <p className={`font-semibold ${textColor}`}>{title}</p>
-          <p className="text-sm text-gray-600 mt-1">{description}</p>
-        </div>
+    <div className="bg-white rounded-xl border border-gray-200 p-4">
+      <div className="flex items-center gap-2 mb-3">
+        {icon}
+        <span className="text-sm font-medium text-gray-700">{label}</span>
       </div>
-    </Link>
-  )
-}
-
-function StatusBadge({ status }: { status: Document['status'] }) {
-  const map = {
-    ready: 'bg-green-100 text-green-700',
-    processing: 'bg-amber-100 text-amber-700',
-    error: 'bg-red-100 text-red-700',
-  }
-  return (
-    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${map[status]}`}>
-      {status}
-    </span>
+      <div className="flex items-end justify-between mb-1.5">
+        <span className="text-xl font-bold text-gray-900">{fmtBytes(used)}</span>
+        <span className="text-xs text-gray-400">{p}%</span>
+      </div>
+      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+        <div className={`h-full rounded-full ${color} transition-all`} style={{ width: `${p}%` }} />
+      </div>
+      <p className="text-xs text-gray-400 mt-1.5">Limit: {limitLabel}</p>
+    </div>
   )
 }
