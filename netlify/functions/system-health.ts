@@ -28,6 +28,7 @@ export const handler: Handler = async (event) => {
   if (!profile?.is_admin) return { statusCode: 403, body: 'Forbidden' }
 
   try {
+    // Run each query independently so one failure doesn't block the rest
     const [
       dbSizeResult,
       storageSizeResult,
@@ -39,27 +40,22 @@ export const handler: Handler = async (event) => {
       newsArticleCount,
       tableStatsResult,
     ] = await Promise.all([
-      // Database size
       supabase.rpc('get_db_size'),
-      // Storage bucket size
       supabase.rpc('get_storage_size'),
-      // Document count + status breakdown
       supabase.from('documents').select('status', { count: 'exact', head: false }),
-      // Chunk count
       supabase.from('document_chunks').select('*', { count: 'exact', head: true }),
-      // Total users
       supabase.from('profiles').select('*', { count: 'exact', head: true }),
-      // Pending approvals
       supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
-      // Published newsletters
       supabase.from('newsletter_drafts').select('*', { count: 'exact', head: true }).eq('status', 'published'),
-      // News articles ingested
       supabase.from('news_articles').select('*', { count: 'exact', head: true }),
-      // Per-table sizes
       supabase.rpc('get_table_sizes'),
     ])
 
-    // Tally document statuses
+    // Log any RPC errors so they show in Netlify function logs
+    if (dbSizeResult.error)      console.warn('get_db_size error:', dbSizeResult.error.message)
+    if (storageSizeResult.error) console.warn('get_storage_size error:', storageSizeResult.error.message)
+    if (tableStatsResult.error)  console.warn('get_table_sizes error:', tableStatsResult.error.message)
+
     const docs = docCount.data ?? []
     const docStats = {
       total: docs.length,
@@ -72,8 +68,10 @@ export const handler: Handler = async (event) => {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        db_size_bytes: dbSizeResult.data ?? 0,
-        storage_size_bytes: storageSizeResult.data ?? 0,
+        db_size_bytes: dbSizeResult.data ?? null,
+        storage_size_bytes: storageSizeResult.data ?? null,
+        db_size_error: dbSizeResult.error?.message ?? null,
+        storage_size_error: storageSizeResult.error?.message ?? null,
         documents: docStats,
         chunk_count: chunkCount.count ?? 0,
         user_count: userCount.count ?? 0,

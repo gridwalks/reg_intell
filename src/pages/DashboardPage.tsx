@@ -9,8 +9,10 @@ import { useAuth } from '../contexts/AuthContext'
 type TableSize = { table_name: string; row_count: number; size_bytes: number }
 
 type HealthData = {
-  db_size_bytes: number
-  storage_size_bytes: number
+  db_size_bytes: number | null
+  storage_size_bytes: number | null
+  db_size_error: string | null
+  storage_size_error: string | null
   documents: { total: number; ready: number; processing: number; error: number }
   chunk_count: number
   user_count: number
@@ -108,6 +110,7 @@ export default function DashboardPage() {
                 used={data.db_size_bytes}
                 limit={DB_LIMIT}
                 limitLabel="0.5 GB free tier"
+                errorMsg={data.db_size_error}
               />
               <UsageBar
                 icon={<HardDrive className="w-4 h-4 text-indigo-600" />}
@@ -115,6 +118,7 @@ export default function DashboardPage() {
                 used={data.storage_size_bytes}
                 limit={STG_LIMIT}
                 limitLabel="1 GB free tier"
+                errorMsg={data.storage_size_error}
               />
             </div>
           </section>
@@ -228,14 +232,15 @@ function MetricCard({ icon, label, value, bg, sub }: {
   )
 }
 
-function UsageBar({ icon, label, used, limit, limitLabel }: {
+function UsageBar({ icon, label, used, limit, limitLabel, errorMsg }: {
   icon: React.ReactNode
   label: string
-  used: number
+  used: number | null
   limit: number
   limitLabel: string
+  errorMsg?: string | null
 }) {
-  const p = pct(used, limit)
+  const p = used != null ? pct(used, limit) : 0
   const color = p >= 90 ? 'bg-red-500' : p >= 70 ? 'bg-amber-500' : 'bg-indigo-500'
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-4">
@@ -243,14 +248,24 @@ function UsageBar({ icon, label, used, limit, limitLabel }: {
         {icon}
         <span className="text-sm font-medium text-gray-700">{label}</span>
       </div>
-      <div className="flex items-end justify-between mb-1.5">
-        <span className="text-xl font-bold text-gray-900">{fmtBytes(used)}</span>
-        <span className="text-xs text-gray-400">{p}%</span>
-      </div>
-      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-        <div className={`h-full rounded-full ${color} transition-all`} style={{ width: `${p}%` }} />
-      </div>
-      <p className="text-xs text-gray-400 mt-1.5">Limit: {limitLabel}</p>
+      {used == null ? (
+        <div className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
+          {errorMsg
+            ? <>SQL function not installed. Run migration 011 in Supabase SQL Editor.</>
+            : 'Unavailable'}
+        </div>
+      ) : (
+        <>
+          <div className="flex items-end justify-between mb-1.5">
+            <span className="text-xl font-bold text-gray-900">{fmtBytes(used)}</span>
+            <span className="text-xs text-gray-400">{p}%</span>
+          </div>
+          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div className={`h-full rounded-full ${color} transition-all`} style={{ width: `${p}%` }} />
+          </div>
+          <p className="text-xs text-gray-400 mt-1.5">Limit: {limitLabel}</p>
+        </>
+      )}
     </div>
   )
 }
