@@ -371,7 +371,7 @@ export default function DocumentsPage() {
                     )}
                   </div>
                 </div>
-                <StatusChip status={doc.status} />
+                <StatusChip status={doc.status} errorMsg={doc.processing_error} />
                 {doc.source_url && (
                   <a
                     href={doc.source_url}
@@ -412,6 +412,12 @@ export default function DocumentsPage() {
             </div>
 
             <div className="px-6 py-5 space-y-4">
+              {modal.doc.status === 'error' && modal.doc.processing_error && (
+                <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs text-red-700">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <span>{modal.doc.processing_error}</span>
+                </div>
+              )}
               {/* Editable fields */}
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">File Name</label>
@@ -549,7 +555,7 @@ export default function DocumentsPage() {
   )
 }
 
-function StatusChip({ status }: { status: Document['status'] }) {
+function StatusChip({ status, errorMsg }: { status: Document['status']; errorMsg?: string | null }) {
   const styles: Record<Document['status'], string> = {
     ready: 'bg-green-100 text-green-700',
     processing: 'bg-amber-100 text-amber-700',
@@ -561,7 +567,10 @@ function StatusChip({ status }: { status: Document['status'] }) {
     error: <AlertTriangle className="w-3 h-3" />,
   }
   return (
-    <span className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${styles[status]}`}>
+    <span
+      className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${styles[status]}`}
+      title={status === 'error' && errorMsg ? errorMsg : undefined}
+    >
       {icons[status]}
       {status}
     </span>

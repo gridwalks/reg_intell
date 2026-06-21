@@ -87,7 +87,7 @@ export const handler: BackgroundHandler = async (event) => {
 
     const text: string = doc.extracted_text ?? ''
     if (text.trim().length < 50) {
-      await supabase.from('documents').update({ status: 'error' }).eq('id', document_id)
+      await supabase.from('documents').update({ status: 'error', processing_error: 'Extracted text too short — PDF may be scanned or empty.' }).eq('id', document_id)
       return
     }
 
@@ -122,11 +122,12 @@ export const handler: BackgroundHandler = async (event) => {
       .update({ status: 'ready', chunk_count: stored, extracted_text: null })
       .eq('id', document_id)
   } catch (err) {
-    console.error('process-document-background error:', err)
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('process-document-background error:', msg)
     if (document_id) {
       await supabase
         .from('documents')
-        .update({ status: 'error' })
+        .update({ status: 'error', processing_error: msg })
         .eq('id', document_id)
     }
   }
