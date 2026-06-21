@@ -17,6 +17,7 @@ export type Document = {
   name: string
   title: string | null
   document_date: string | null
+  source_url: string | null
   file_path: string
   file_size: number | null
   file_type: string | null

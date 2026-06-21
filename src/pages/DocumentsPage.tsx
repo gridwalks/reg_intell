@@ -79,6 +79,7 @@ type DocModal = {
   name: string
   title: string
   document_date: string
+  source_url: string
   saving: boolean
   viewUrl: string | null
   loadingUrl: boolean
@@ -118,6 +119,7 @@ export default function DocumentsPage() {
       name: doc.name,
       title: doc.title ?? '',
       document_date: doc.document_date ?? '',
+      source_url: doc.source_url ?? '',
       saving: false,
       viewUrl: null,
       loadingUrl: false,
@@ -133,6 +135,7 @@ export default function DocumentsPage() {
         name: modal.name.trim() || modal.doc.name,
         title: modal.title.trim() || null,
         document_date: modal.document_date || null,
+        source_url: modal.source_url.trim() || null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', modal.doc.id)
@@ -369,6 +372,18 @@ export default function DocumentsPage() {
                   </div>
                 </div>
                 <StatusChip status={doc.status} />
+                {doc.source_url && (
+                  <a
+                    href={doc.source_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={e => e.stopPropagation()}
+                    className="p-1.5 text-gray-400 hover:text-indigo-600 transition-colors"
+                    title="Open source URL"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+                )}
                 <button
                   onClick={e => { e.stopPropagation(); deleteDoc(doc) }}
                   className="opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 hover:text-red-500 transition-all"
@@ -425,6 +440,29 @@ export default function DocumentsPage() {
                   onChange={e => setModal(m => m ? { ...m, document_date: e.target.value } : m)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Source URL</label>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={modal.source_url}
+                    onChange={e => setModal(m => m ? { ...m, source_url: e.target.value } : m)}
+                    placeholder="https://www.fda.gov/…"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  {modal.source_url && (
+                    <a
+                      href={modal.source_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center px-3 py-2 border border-gray-300 rounded-lg text-gray-500 hover:text-indigo-600 hover:border-indigo-300 transition-colors"
+                      title="Open URL"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  )}
+                </div>
               </div>
 
               {/* Read-only fields */}
