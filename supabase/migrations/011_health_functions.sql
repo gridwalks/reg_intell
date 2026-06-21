@@ -28,5 +28,5 @@ returns table (
     'documents', 'document_chunks', 'newsletter_chunks',
     'newsletter_drafts', 'news_articles', 'news_sources', 'profiles'
   )
-  order by size_bytes desc;
+  order by 3 desc;
 $$;
