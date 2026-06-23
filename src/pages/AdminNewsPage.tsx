@@ -958,7 +958,7 @@ function DraftSection({
         />
       ) : (
         <div className="p-4 prose-chat text-sm">
-          {value ? <ReactMarkdown>{value}</ReactMarkdown> : <p className="text-gray-400 italic">empty</p>}
+          {localVal ? <ReactMarkdown>{localVal}</ReactMarkdown> : <p className="text-gray-400 italic">empty</p>}
         </div>
       )}
     </div>
