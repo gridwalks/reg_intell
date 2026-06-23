@@ -13,6 +13,19 @@ type Newsletter = {
   published_at: string | null
 }
 
+function stripMarkdown(md: string): string {
+  return md
+    .replace(/#{1,6}\s+/g, '')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/\*(.+?)\*/g, '$1')
+    .replace(/`(.+?)`/g, '$1')
+    .replace(/\[(.+?)\]\(.+?\)/g, '$1')
+    .replace(/^[-*+]\s+/gm, '')
+    .replace(/^\d+\.\s+/gm, '')
+    .replace(/\n+/g, ' ')
+    .trim()
+}
+
 export default function NewsPage() {
   const [newsletters, setNewsletters] = useState<Newsletter[]>([])
   const [loading, setLoading] = useState(true)
@@ -77,6 +90,16 @@ export default function NewsPage() {
                   ? <ChevronUp className="w-4 h-4 text-gray-400" />
                   : <ChevronDown className="w-4 h-4 text-gray-400" />}
               </button>
+
+              {/* Collapsed preview — fade out after ~4 lines */}
+              {expanded !== nl.id && (nl.intro_text || nl.sponsor_section) && (
+                <div className="relative px-6 pb-5 overflow-hidden" style={{ maxHeight: '5.5rem' }}>
+                  <p className="text-sm text-gray-500 leading-relaxed line-clamp-4">
+                    {stripMarkdown(nl.intro_text || nl.sponsor_section || '')}
+                  </p>
+                  <div className="absolute bottom-0 inset-x-0 h-10 bg-gradient-to-t from-white to-transparent" />
+                </div>
+              )}
 
               {expanded === nl.id && (
                 <div className="border-t border-gray-100 px-6 py-6 space-y-8">
