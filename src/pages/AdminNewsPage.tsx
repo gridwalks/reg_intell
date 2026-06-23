@@ -599,7 +599,7 @@ export default function AdminNewsPage() {
                   value={selectedDraft.intro_text ?? ''}
                   editing={editing}
                   onChange={v => { if (formRef.current) formRef.current.intro = v }}
-                  plain
+                  rows={4}
                 />
                 <DraftSection
                   label="Sponsor impact"
@@ -933,13 +933,13 @@ export default function AdminNewsPage() {
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
 function DraftSection({
-  label, value, editing, onChange, plain = false,
+  label, value, editing, onChange, rows = 12,
 }: {
   label: string
   value: string
   editing: boolean
   onChange: (v: string) => void
-  plain?: boolean
+  rows?: number
 }) {
   const [localVal, setLocalVal] = useState(value)
   useEffect(() => { setLocalVal(value) }, [value])
@@ -951,22 +951,14 @@ function DraftSection({
       </div>
       {editing ? (
         <textarea
-          className="w-full p-4 text-sm text-gray-800 resize-y min-h-[120px] outline-none font-mono leading-relaxed"
+          className="w-full p-4 text-sm text-gray-800 resize-y outline-none font-mono leading-relaxed"
           defaultValue={localVal}
           onChange={e => { setLocalVal(e.target.value); onChange(e.target.value) }}
-          rows={plain ? 3 : 12}
+          rows={rows}
         />
       ) : (
-        <div className="p-4">
-          {plain ? (
-            <p className="text-sm text-gray-700 leading-relaxed">
-              {value || <span className="text-gray-400 italic">empty</span>}
-            </p>
-          ) : (
-            <div className="prose-chat text-sm">
-              {value ? <ReactMarkdown>{value}</ReactMarkdown> : <p className="text-gray-400 italic">empty</p>}
-            </div>
-          )}
+        <div className="p-4 prose-chat text-sm">
+          {value ? <ReactMarkdown>{value}</ReactMarkdown> : <p className="text-gray-400 italic">empty</p>}
         </div>
       )}
     </div>

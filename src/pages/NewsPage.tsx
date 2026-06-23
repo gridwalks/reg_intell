@@ -80,10 +80,7 @@ export default function NewsPage() {
 
               {expanded === nl.id && (
                 <div className="border-t border-gray-100 px-6 py-6 space-y-8">
-                  {nl.intro_text && (
-                    <p className="text-gray-700 leading-relaxed">{nl.intro_text}</p>
-                  )}
-
+                  <Section title="" content={nl.intro_text} />
                   <Section title="Sponsor impact" content={nl.sponsor_section} />
                   <Section title="Vendor and eClinical impact" content={nl.vendor_section} />
                 </div>
@@ -97,12 +94,14 @@ export default function NewsPage() {
 }
 
 function Section({ title, content }: { title: string; content: string | null }) {
-  if (!content) return null
+  if (!content?.trim()) return null
   return (
     <div>
-      <h2 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-100">
-        {title}
-      </h2>
+      {title && (
+        <h2 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-100">
+          {title}
+        </h2>
+      )}
       <div className="prose-chat">
         <ReactMarkdown>{content}</ReactMarkdown>
       </div>
