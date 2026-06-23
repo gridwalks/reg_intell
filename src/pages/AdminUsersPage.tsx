@@ -67,10 +67,15 @@ export default function AdminUsersPage() {
   }
 
   const setTier = async (profileId: string, tier: Tier) => {
-    setProfiles(p => p.map(u => u.id === profileId ? { ...u, actioning: true } : u))
-    await supabase.from('profiles').update({ tier }).eq('id', profileId)
-    await loadProfiles()
-    setMsg('Tier updated')
+    // Optimistically update so the dropdown doesn't snap back
+    setProfiles(p => p.map(u => u.id === profileId ? { ...u, tier } : u))
+    const { error } = await supabase.from('profiles').update({ tier }).eq('id', profileId)
+    if (error) {
+      setMsg('Tier update failed: ' + error.message)
+      await loadProfiles() // revert to real state
+    } else {
+      setMsg('Tier updated')
+    }
     setTimeout(() => setMsg(''), 3000)
   }
 
