@@ -75,6 +75,12 @@ export default function AdminNewsPage() {
   const [backfilling, setBackfilling] = useState(false)
   const formRef = useRef<{ intro: string; sponsor: string; vendor: string } | null>(null)
 
+  // Manual create state
+  const [creating, setCreating] = useState(false)
+  const [createForm, setCreateForm] = useState({ date: '', intro: '', sponsor: '', vendor: '' })
+  const [createSaving, setCreateSaving] = useState(false)
+  const [createErr, setCreateErr] = useState('')
+
   // Sources state
   const [sources, setSources] = useState<Source[]>([])
   const [sourceMsg, setSourceMsg] = useState('')
@@ -225,6 +231,44 @@ export default function AdminNewsPage() {
     setTimeout(() => setMsg(''), 4000)
   }
 
+  const startCreate = () => {
+    const today = new Date().toISOString().slice(0, 10)
+    setCreateForm({ date: today, intro: '', sponsor: '', vendor: '' })
+    setCreateErr('')
+    setCreating(true)
+    setSelectedDraft(null)
+  }
+
+  const cancelCreate = () => { setCreating(false); setCreateErr('') }
+
+  const submitCreate = async () => {
+    if (!createForm.date) { setCreateErr('Date is required.'); return }
+    setCreateSaving(true)
+    setCreateErr('')
+    const { data, error } = await supabase
+      .from('newsletter_drafts')
+      .insert({
+        draft_date: createForm.date,
+        status: 'pending_approval',
+        intro_text: createForm.intro || null,
+        sponsor_section: createForm.sponsor || null,
+        vendor_section: createForm.vendor || null,
+        article_count: 0,
+      })
+      .select()
+      .single()
+    if (error) {
+      setCreateErr('Failed to create: ' + error.message)
+    } else {
+      setCreating(false)
+      await loadDrafts()
+      if (data) selectDraft(data as Draft)
+      setMsg('Newsletter created — review and publish when ready.')
+      setTimeout(() => setMsg(''), 4000)
+    }
+    setCreateSaving(false)
+  }
+
   const discard = async () => {
     if (!selectedDraft) return
     if (!confirm("Discard this draft? It won't be published.")) return
@@ -372,7 +416,16 @@ export default function AdminNewsPage() {
         <div className="grid grid-cols-[240px_1fr] gap-6">
           {/* Left: Draft list */}
           <aside className="space-y-1">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-2 mb-2">Drafts</p>
+            <div className="flex items-center justify-between px-2 mb-2">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Drafts</p>
+              <button
+                onClick={startCreate}
+                title="Create manual newsletter"
+                className="p-1 rounded-md text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            </div>
             {drafts.length === 0 && (
               <p className="text-sm text-gray-400 px-2">No drafts yet.</p>
             )}
@@ -401,7 +454,84 @@ export default function AdminNewsPage() {
 
           {/* Right: Editor */}
           <div className="min-w-0">
-            {!selectedDraft ? (
+            {creating ? (
+              <div className="space-y-5">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-gray-900">New newsletter</h2>
+                  <button onClick={cancelCreate} className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Newsletter date *</label>
+                  <input
+                    type="date"
+                    value={createForm.date}
+                    onChange={e => setCreateForm(f => ({ ...f, date: e.target.value }))}
+                    className="w-48 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                  <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Intro</p>
+                  </div>
+                  <textarea
+                    className="w-full p-4 text-sm text-gray-800 resize-y min-h-[80px] outline-none leading-relaxed"
+                    placeholder="Brief intro paragraph for this edition…"
+                    value={createForm.intro}
+                    onChange={e => setCreateForm(f => ({ ...f, intro: e.target.value }))}
+                    rows={3}
+                  />
+                </div>
+
+                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                  <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Sponsor impact</p>
+                  </div>
+                  <textarea
+                    className="w-full p-4 text-sm text-gray-800 font-mono resize-y min-h-[160px] outline-none leading-relaxed"
+                    placeholder="Markdown content for sponsor section…"
+                    value={createForm.sponsor}
+                    onChange={e => setCreateForm(f => ({ ...f, sponsor: e.target.value }))}
+                    rows={8}
+                  />
+                </div>
+
+                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                  <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Vendor and eClinical impact</p>
+                  </div>
+                  <textarea
+                    className="w-full p-4 text-sm text-gray-800 font-mono resize-y min-h-[160px] outline-none leading-relaxed"
+                    placeholder="Markdown content for vendor section…"
+                    value={createForm.vendor}
+                    onChange={e => setCreateForm(f => ({ ...f, vendor: e.target.value }))}
+                    rows={8}
+                  />
+                </div>
+
+                {createErr && (
+                  <p className="text-sm text-red-600">{createErr}</p>
+                )}
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={submitCreate}
+                    disabled={createSaving}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-lg disabled:opacity-50 transition-colors"
+                    style={{ backgroundColor: '#4F46E5' }}
+                  >
+                    <Save className="w-4 h-4" />
+                    {createSaving ? 'Creating…' : 'Create draft'}
+                  </button>
+                  <button onClick={cancelCreate} className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : !selectedDraft ? (
               <div className="text-center py-16 text-gray-400 text-sm">Select a draft to review</div>
             ) : (
               <div className="space-y-5">
@@ -522,48 +652,49 @@ export default function AdminNewsPage() {
               </div>
             )}
 
-            {/* Sources status panels (compact, below editor) */}
-            {(manualReviewSources.length > 0 || paywalledSources.length > 0) && (
-              <div className="mt-8 border border-amber-200 bg-amber-50 rounded-xl p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <AlertTriangle className="w-4 h-4 text-amber-600" />
-                  <p className="text-sm font-semibold text-amber-800">Sources requiring manual review</p>
+            {!creating && (<>
+              {(manualReviewSources.length > 0 || paywalledSources.length > 0) && (
+                <div className="mt-8 border border-amber-200 bg-amber-50 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <AlertTriangle className="w-4 h-4 text-amber-600" />
+                    <p className="text-sm font-semibold text-amber-800">Sources requiring manual review</p>
+                  </div>
+                  {manualReviewSources.map(s => (
+                    <div key={s.id} className="mb-2">
+                      <a href={s.homepage_url} target="_blank" rel="noopener noreferrer"
+                        className="text-sm font-medium text-blue-700 hover:underline flex items-center gap-1">
+                        {s.name} <ExternalLink className="w-3 h-3" />
+                      </a>
+                      {s.notes && <p className="text-xs text-amber-700 mt-0.5">{s.notes}</p>}
+                    </div>
+                  ))}
+                  {paywalledSources.length > 0 && (
+                    <>
+                      <p className="text-xs font-semibold text-amber-700 mt-3 mb-1">Paywalled (no auto-ingestion)</p>
+                      <p className="text-xs text-amber-700">{paywalledSources.map(s => s.name).join(', ')}</p>
+                    </>
+                  )}
                 </div>
-                {manualReviewSources.map(s => (
-                  <div key={s.id} className="mb-2">
-                    <a href={s.homepage_url} target="_blank" rel="noopener noreferrer"
-                      className="text-sm font-medium text-blue-700 hover:underline flex items-center gap-1">
-                      {s.name} <ExternalLink className="w-3 h-3" />
-                    </a>
-                    {s.notes && <p className="text-xs text-amber-700 mt-0.5">{s.notes}</p>}
-                  </div>
-                ))}
-                {paywalledSources.length > 0 && (
-                  <>
-                    <p className="text-xs font-semibold text-amber-700 mt-3 mb-1">Paywalled (no auto-ingestion)</p>
-                    <p className="text-xs text-amber-700">{paywalledSources.map(s => s.name).join(', ')}</p>
-                  </>
-                )}
-              </div>
-            )}
+              )}
 
-            <div className="mt-4">
-              <button onClick={loadSources} className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600">
-                <RefreshCw className="w-3 h-3" /> Refresh source status
-              </button>
-              <div className="mt-2 grid grid-cols-2 gap-1">
-                {activeSources.map(s => (
-                  <div key={s.id} className="flex items-center justify-between text-xs text-gray-500 bg-gray-50 rounded px-2 py-1">
-                    <span className="truncate">{s.name}</span>
-                    <span className="shrink-0 ml-2 text-gray-400">
-                      {s.last_fetched_at
-                        ? new Date(s.last_fetched_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-                        : 'never'}
-                    </span>
-                  </div>
-                ))}
+              <div className="mt-4">
+                <button onClick={loadSources} className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600">
+                  <RefreshCw className="w-3 h-3" /> Refresh source status
+                </button>
+                <div className="mt-2 grid grid-cols-2 gap-1">
+                  {activeSources.map(s => (
+                    <div key={s.id} className="flex items-center justify-between text-xs text-gray-500 bg-gray-50 rounded px-2 py-1">
+                      <span className="truncate">{s.name}</span>
+                      <span className="shrink-0 ml-2 text-gray-400">
+                        {s.last_fetched_at
+                          ? new Date(s.last_fetched_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+                          : 'never'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            </>)}
           </div>
         </div>
       )}
