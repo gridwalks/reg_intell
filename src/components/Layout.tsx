@@ -1,3 +1,4 @@
+import type React from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import {
   LayoutDashboard,
@@ -9,25 +10,18 @@ import {
   ShieldCheck,
   Users,
 } from 'lucide-react'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth, type Tier } from '../contexts/AuthContext'
 
-const nav = [
-  { to: '/query', icon: MessageSquare, label: 'Intelligence Query' },
-  { to: '/news', icon: Newspaper, label: 'News' },
-]
-
-const adminContentNav = [
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/documents', icon: FileText, label: 'Documents' },
-]
-
-const adminNav = [
-  { to: '/admin/news', icon: ShieldCheck, label: 'News admin' },
-  { to: '/admin/users', icon: Users, label: 'Users' },
-]
+const TIER_LABELS: Record<Tier, { label: string; color: string }> = {
+  platform:   { label: 'Platform',   color: 'bg-indigo-500 text-white' },
+  newsletter: { label: 'Newsletter', color: 'bg-teal-500 text-white' },
+  free:       { label: 'Free',       color: 'bg-gray-500 text-white' },
+}
 
 export default function Layout() {
-  const { user, isAdmin, signOut } = useAuth()
+  const { user, isAdmin, tier, signOut } = useAuth()
+
+  const isPlatform = tier === 'platform'
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -44,75 +38,23 @@ export default function Layout() {
 
         {/* Navigation */}
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {nav.map(({ to, icon: Icon, label }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'text-white'
-                    : 'text-indigo-200 hover:text-white'
-                }`
-              }
-              style={({ isActive }) => isActive ? { backgroundColor: '#4F46E5' } : undefined}
-            >
-              {({ isActive }) => (
-                <>
-                  <Icon className="w-4 h-4 shrink-0" />
-                  <span className="flex-1">{label}</span>
-                  {isActive && <ChevronRight className="w-3 h-3 opacity-60" />}
-                </>
-              )}
-            </NavLink>
-          ))}
+          {/* News — all tiers */}
+          <NavItem to="/news" icon={Newspaper} label="News" />
 
+          {/* Platform only */}
+          {isPlatform && (
+            <NavItem to="/query" icon={MessageSquare} label="Intelligence Query" />
+          )}
+
+          {/* Admin content section */}
           {isAdmin && (
             <div className="pt-3 mt-3 border-t border-indigo-800">
               <p className="text-indigo-400 text-xs px-3 mb-1.5 uppercase tracking-wide font-medium">Content</p>
-              {adminContentNav.map(({ to, icon: Icon, label }) => (
-                <NavLink
-                  key={to}
-                  to={to}
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                      isActive ? 'text-white' : 'text-indigo-200 hover:text-white'
-                    }`
-                  }
-                  style={({ isActive }) => isActive ? { backgroundColor: '#4F46E5' } : undefined}
-                >
-                  {({ isActive }) => (
-                    <>
-                      <Icon className="w-4 h-4 shrink-0" />
-                      <span className="flex-1">{label}</span>
-                      {isActive && <ChevronRight className="w-3 h-3 opacity-60" />}
-                    </>
-                  )}
-                </NavLink>
-              ))}
+              <NavItem to="/dashboard" icon={LayoutDashboard} label="Dashboard" />
+              <NavItem to="/documents" icon={FileText} label="Documents" />
               <p className="text-indigo-400 text-xs px-3 mt-3 mb-1.5 uppercase tracking-wide font-medium">Admin</p>
-              {adminNav.map(({ to, icon: Icon, label }) => (
-                <NavLink
-                  key={to}
-                  to={to}
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'text-white'
-                        : 'text-indigo-200 hover:text-white'
-                    }`
-                  }
-                  style={({ isActive }) => isActive ? { backgroundColor: '#4F46E5' } : undefined}
-                >
-                  {({ isActive }) => (
-                    <>
-                      <Icon className="w-4 h-4 shrink-0" />
-                      <span className="flex-1">{label}</span>
-                      {isActive && <ChevronRight className="w-3 h-3 opacity-60" />}
-                    </>
-                  )}
-                </NavLink>
-              ))}
+              <NavItem to="/admin/news" icon={ShieldCheck} label="News admin" />
+              <NavItem to="/admin/users" icon={Users} label="Users" />
             </div>
           )}
         </nav>
@@ -121,6 +63,9 @@ export default function Layout() {
         <div className="px-3 pb-4 border-t border-indigo-800 pt-3">
           <div className="px-3 py-2 mb-1">
             <p className="text-indigo-200 text-xs truncate">{user?.email}</p>
+            <span className={`mt-1 inline-block text-xs font-medium px-2 py-0.5 rounded-full ${TIER_LABELS[tier].color}`}>
+              {TIER_LABELS[tier].label}
+            </span>
           </div>
           <button
             onClick={signOut}
@@ -137,5 +82,27 @@ export default function Layout() {
         <Outlet />
       </main>
     </div>
+  )
+}
+
+function NavItem({ to, icon: Icon, label }: { to: string; icon: React.ElementType; label: string }) {
+  return (
+    <NavLink
+      to={to}
+      className={({ isActive }) =>
+        `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+          isActive ? 'text-white' : 'text-indigo-200 hover:text-white'
+        }`
+      }
+      style={({ isActive }) => isActive ? { backgroundColor: '#4F46E5' } : undefined}
+    >
+      {({ isActive }) => (
+        <>
+          <Icon className="w-4 h-4 shrink-0" />
+          <span className="flex-1">{label}</span>
+          {isActive && <ChevronRight className="w-3 h-3 opacity-60" />}
+        </>
+      )}
+    </NavLink>
   )
 }

@@ -8,12 +8,15 @@ import {
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 
+export type Tier = 'platform' | 'newsletter' | 'free'
+
 export type Profile = {
   id: string
   email: string
   full_name: string | null
   status: 'pending' | 'approved' | 'rejected'
   is_admin: boolean
+  tier: Tier
   approved_at: string | null
   created_at: string
 }
@@ -23,6 +26,7 @@ type AuthContextType = {
   session: Session | null
   profile: Profile | null
   isAdmin: boolean
+  tier: Tier
   loading: boolean
   needsPasswordReset: boolean
   signOut: () => Promise<void>
@@ -34,6 +38,7 @@ const AuthContext = createContext<AuthContextType>({
   session: null,
   profile: null,
   isAdmin: false,
+  tier: 'platform',
   loading: true,
   needsPasswordReset: false,
   signOut: async () => {},
@@ -99,6 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session,
       profile,
       isAdmin: profile?.is_admin ?? false,
+      tier: profile?.tier ?? 'platform',
       loading,
       needsPasswordReset,
       signOut,

@@ -28,17 +28,26 @@ function AdminRoute({ children }: { children: ReactNode }) {
   const { isAdmin, loading, profile } = useAuth()
 
   if (loading) return <Spinner />
-  // Wait for profile to load before deciding
   if (!profile) return <Spinner />
-  if (!isAdmin) return (
-    <div className="flex h-full items-center justify-center py-24">
-      <div className="text-center">
-        <p className="text-gray-500 text-sm">You don't have permission to view this page.</p>
-      </div>
-    </div>
-  )
+  if (!isAdmin) return <Navigate to="/news" replace />
 
   return <>{children}</>
+}
+
+function PlatformRoute({ children }: { children: ReactNode }) {
+  const { tier, loading, profile } = useAuth()
+
+  if (loading) return <Spinner />
+  if (!profile) return <Spinner />
+  if (tier !== 'platform') return <Navigate to="/news" replace />
+
+  return <>{children}</>
+}
+
+function TierHome() {
+  const { tier, loading } = useAuth()
+  if (loading) return <Spinner />
+  return <Navigate to={tier === 'platform' ? '/query' : '/news'} replace />
 }
 
 function Spinner() {
@@ -63,20 +72,22 @@ export default function App() {
 
       {/* Protected app shell */}
       <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-        <Route index element={<Navigate to="/query" replace />} />
+        <Route index element={<TierHome />} />
 
-        {/* Admin-only */}
+        {/* Platform tier only */}
+        <Route path="/query" element={<PlatformRoute><ChatPage /></PlatformRoute>} />
+
+        {/* Admin only */}
         <Route path="/dashboard" element={<AdminRoute><DashboardPage /></AdminRoute>} />
         <Route path="/documents" element={<AdminRoute><DocumentsPage /></AdminRoute>} />
         <Route path="/admin/news"  element={<AdminRoute><AdminNewsPage /></AdminRoute>} />
         <Route path="/admin/users" element={<AdminRoute><AdminUsersPage /></AdminRoute>} />
 
         {/* All approved users */}
-        <Route path="/query" element={<ChatPage />} />
-        <Route path="/news"  element={<NewsPage />} />
+        <Route path="/news" element={<NewsPage />} />
       </Route>
 
-      <Route path="*" element={<Navigate to="/query" replace />} />
+      <Route path="*" element={<Navigate to="/news" replace />} />
     </Routes>
   )
 }

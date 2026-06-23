@@ -4,9 +4,15 @@ import {
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import type { Profile } from '../contexts/AuthContext'
+import type { Profile, Tier } from '../contexts/AuthContext'
 
 type ProfileWithActions = Profile & { actioning?: boolean }
+
+const TIER_OPTIONS: { value: Tier; label: string; color: string }[] = [
+  { value: 'platform',   label: 'Platform',   color: 'bg-indigo-100 text-indigo-700' },
+  { value: 'newsletter', label: 'Newsletter', color: 'bg-teal-100 text-teal-700' },
+  { value: 'free',       label: 'Free',       color: 'bg-gray-100 text-gray-600' },
+]
 
 export default function AdminUsersPage() {
   const { session, user: currentUser } = useAuth()
@@ -58,6 +64,14 @@ export default function AdminUsersPage() {
       setMsg('Action failed — check console.')
       setTimeout(() => setMsg(''), 4000)
     }
+  }
+
+  const setTier = async (profileId: string, tier: Tier) => {
+    setProfiles(p => p.map(u => u.id === profileId ? { ...u, actioning: true } : u))
+    await supabase.from('profiles').update({ tier }).eq('id', profileId)
+    await loadProfiles()
+    setMsg('Tier updated')
+    setTimeout(() => setMsg(''), 3000)
   }
 
   const pending  = profiles.filter(p => p.status === 'pending')
@@ -129,6 +143,7 @@ export default function AdminUsersPage() {
                     profile={p}
                     isSelf={p.id === currentUser?.id}
                     onAction={act}
+                    onSetTier={setTier}
                     actions={['reject', 'toggle_admin']}
                   />
                 ))}
@@ -163,27 +178,28 @@ export default function AdminUsersPage() {
 }
 
 function UserRow({
-  profile,
-  isSelf,
-  onAction,
-  actions,
+  profile, isSelf, onAction, onSetTier, actions,
 }: {
   profile: ProfileWithActions
   isSelf: boolean
   onAction: (action: 'approve' | 'reject' | 'toggle_admin', id: string) => void
+  onSetTier?: (id: string, tier: Tier) => void
   actions: Array<'approve' | 'reject' | 'toggle_admin'>
 }) {
+  const tierInfo = TIER_OPTIONS.find(t => t.value === profile.tier) ?? TIER_OPTIONS[0]
+
   return (
     <div className="flex items-center justify-between px-4 py-3 gap-4">
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm font-medium text-gray-900 truncate">{profile.email}</span>
           {profile.is_admin && (
             <span className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded font-medium">admin</span>
           )}
-          {isSelf && (
-            <span className="text-xs text-gray-400">(you)</span>
-          )}
+          <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${tierInfo.color}`}>
+            {tierInfo.label}
+          </span>
+          {isSelf && <span className="text-xs text-gray-400">(you)</span>}
         </div>
         {profile.full_name && (
           <p className="text-xs text-gray-500 mt-0.5">{profile.full_name}</p>
@@ -203,6 +219,18 @@ function UserRow({
           <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
         ) : (
           <>
+            {/* Tier selector — shown for approved users */}
+            {onSetTier && (
+              <select
+                value={profile.tier ?? 'platform'}
+                onChange={e => onSetTier(profile.id, e.target.value as Tier)}
+                className="text-xs border border-gray-300 rounded-lg px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              >
+                {TIER_OPTIONS.map(t => (
+                  <option key={t.value} value={t.value}>{t.label}</option>
+                ))}
+              </select>
+            )}
             {actions.includes('approve') && (
               <button
                 onClick={() => onAction('approve', profile.id)}
