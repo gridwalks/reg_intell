@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { Newspaper, Calendar, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react'
+import { Newspaper, Calendar, ChevronDown, ChevronUp, Lock } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../contexts/AuthContext'
 
 type Newsletter = {
   id: string
@@ -11,6 +12,7 @@ type Newsletter = {
   vendor_section: string | null
   article_count: number | null
   published_at: string | null
+  is_paid: boolean
 }
 
 function stripMarkdown(md: string): string {
@@ -27,14 +29,19 @@ function stripMarkdown(md: string): string {
 }
 
 export default function NewsPage() {
+  const { tier } = useAuth()
   const [newsletters, setNewsletters] = useState<Newsletter[]>([])
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState<string | null>(null)
 
+  // Free users can read non-paid newsletters; paid requires newsletter or platform tier
+  const canRead = (nl: Newsletter) =>
+    !nl.is_paid || tier === 'newsletter' || tier === 'platform'
+
   useEffect(() => {
     supabase
       .from('newsletter_drafts')
-      .select('id, draft_date, intro_text, sponsor_section, vendor_section, article_count, published_at')
+      .select('id, draft_date, intro_text, sponsor_section, vendor_section, article_count, published_at, is_paid')
       .eq('status', 'published')
       .order('draft_date', { ascending: false })
       .then(({ data }) => {
@@ -43,6 +50,11 @@ export default function NewsPage() {
         setLoading(false)
       })
   }, [])
+
+  const toggle = (nl: Newsletter) => {
+    if (!canRead(nl)) return // free users can't expand paid newsletters
+    setExpanded(expanded === nl.id ? null : nl.id)
+  }
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
@@ -65,51 +77,76 @@ export default function NewsPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {newsletters.map(nl => (
-            <div key={nl.id} className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-              <button
-                className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors"
-                onClick={() => setExpanded(expanded === nl.id ? null : nl.id)}
-              >
-                <div className="flex items-center gap-3 text-left">
-                  <Calendar className="w-4 h-4 text-blue-500 shrink-0" />
-                  <div>
-                    <p className="font-semibold text-gray-900">
-                      {new Date(nl.draft_date + 'T12:00:00Z').toLocaleDateString('en-US', {
-                        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-                      })}
-                    </p>
-                    {nl.article_count != null && (
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        {nl.article_count} article{nl.article_count !== 1 ? 's' : ''} included
-                      </p>
-                    )}
+          {newsletters.map(nl => {
+            const isExpanded = expanded === nl.id
+            const locked = !canRead(nl)
+            return (
+              <div key={nl.id} className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+                <button
+                  className={`w-full flex items-center justify-between px-6 py-4 transition-colors ${locked ? 'cursor-default' : 'hover:bg-gray-50'}`}
+                  onClick={() => toggle(nl)}
+                >
+                  <div className="flex items-center gap-3 text-left">
+                    <Calendar className="w-4 h-4 text-blue-500 shrink-0" />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-gray-900">
+                          {new Date(nl.draft_date + 'T12:00:00Z').toLocaleDateString('en-US', {
+                            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+                          })}
+                        </p>
+                        {nl.is_paid && (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                            <Lock className="w-2.5 h-2.5" /> Newsletter
+                          </span>
+                        )}
+                      </div>
+                      {nl.article_count != null && (
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {nl.article_count} article{nl.article_count !== 1 ? 's' : ''} included
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
-                {expanded === nl.id
-                  ? <ChevronUp className="w-4 h-4 text-gray-400" />
-                  : <ChevronDown className="w-4 h-4 text-gray-400" />}
-              </button>
+                  {locked
+                    ? <Lock className="w-4 h-4 text-gray-300" />
+                    : isExpanded
+                      ? <ChevronUp className="w-4 h-4 text-gray-400" />
+                      : <ChevronDown className="w-4 h-4 text-gray-400" />
+                  }
+                </button>
 
-              {/* Collapsed preview — fade out after ~4 lines */}
-              {expanded !== nl.id && (nl.intro_text || nl.sponsor_section) && (
-                <div className="relative px-6 pb-5 overflow-hidden" style={{ maxHeight: '5.5rem' }}>
-                  <p className="text-sm text-gray-500 leading-relaxed line-clamp-4">
-                    {stripMarkdown(nl.intro_text || nl.sponsor_section || '')}
-                  </p>
-                  <div className="absolute bottom-0 inset-x-0 h-10 bg-gradient-to-t from-white to-transparent" />
-                </div>
-              )}
+                {/* Preview — always shown when collapsed */}
+                {!isExpanded && (nl.intro_text || nl.sponsor_section) && (
+                  <div className="relative px-6 pb-5 overflow-hidden" style={{ maxHeight: '5.5rem' }}>
+                    <p className="text-sm text-gray-500 leading-relaxed line-clamp-4">
+                      {stripMarkdown(nl.intro_text || nl.sponsor_section || '')}
+                    </p>
+                    <div className="absolute bottom-0 inset-x-0 h-10 bg-gradient-to-t from-white to-transparent" />
+                  </div>
+                )}
 
-              {expanded === nl.id && (
-                <div className="border-t border-gray-100 px-6 py-6 space-y-8">
-                  <Section title="" content={nl.intro_text} />
-                  <Section title="Sponsor impact" content={nl.sponsor_section} />
-                  <Section title="Vendor and eClinical impact" content={nl.vendor_section} />
-                </div>
-              )}
-            </div>
-          ))}
+                {/* Upgrade prompt for free users on paid newsletters */}
+                {!isExpanded && locked && (
+                  <div className="px-6 pb-5">
+                    <div className="flex items-center gap-2 mt-1 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                      <Lock className="w-3.5 h-3.5 shrink-0" />
+                      This edition is available to Newsletter subscribers. Upgrade to read the full briefing.
+                    </div>
+                  </div>
+                )}
+
+                {/* Full content for paid/platform users */}
+                {isExpanded && !locked && (
+                  <div className="border-t border-gray-100 px-6 py-6 space-y-8">
+                    <Section title="" content={nl.intro_text} />
+                    <Section title="Sponsor impact" content={nl.sponsor_section} />
+                    <Section title="Vendor and eClinical impact" content={nl.vendor_section} />
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
     </div>

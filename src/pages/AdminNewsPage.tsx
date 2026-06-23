@@ -16,6 +16,7 @@ type Draft = {
   sponsor_section: string | null
   vendor_section: string | null
   article_count: number | null
+  is_paid: boolean
   created_at: string
 }
 
@@ -77,7 +78,7 @@ export default function AdminNewsPage() {
 
   // Manual create state
   const [creating, setCreating] = useState(false)
-  const [createForm, setCreateForm] = useState({ date: '', intro: '', sponsor: '', vendor: '' })
+  const [createForm, setCreateForm] = useState({ date: '', intro: '', sponsor: '', vendor: '', is_paid: false })
   const [createSaving, setCreateSaving] = useState(false)
   const [createErr, setCreateErr] = useState('')
 
@@ -231,6 +232,14 @@ export default function AdminNewsPage() {
     setTimeout(() => setMsg(''), 4000)
   }
 
+  const togglePaid = async () => {
+    if (!selectedDraft) return
+    const newVal = !selectedDraft.is_paid
+    await supabase.from('newsletter_drafts').update({ is_paid: newVal }).eq('id', selectedDraft.id)
+    setSelectedDraft(d => d ? { ...d, is_paid: newVal } : d)
+    setDrafts(ds => ds.map(d => d.id === selectedDraft.id ? { ...d, is_paid: newVal } : d))
+  }
+
   const startCreate = () => {
     const today = new Date().toISOString().slice(0, 10)
     setCreateForm({ date: today, intro: '', sponsor: '', vendor: '' })
@@ -254,6 +263,7 @@ export default function AdminNewsPage() {
         sponsor_section: createForm.sponsor || null,
         vendor_section: createForm.vendor || null,
         article_count: 0,
+        is_paid: createForm.is_paid,
       })
       .select()
       .single()
@@ -512,6 +522,16 @@ export default function AdminNewsPage() {
                   />
                 </div>
 
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={createForm.is_paid}
+                    onChange={e => setCreateForm(f => ({ ...f, is_paid: e.target.checked }))}
+                    className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-400"
+                  />
+                  <span className="text-sm text-gray-700">Paid newsletter (Newsletter tier+ only)</span>
+                </label>
+
                 {createErr && (
                   <p className="text-sm text-red-600">{createErr}</p>
                 )}
@@ -543,16 +563,29 @@ export default function AdminNewsPage() {
                         weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
                       })}
                     </h2>
-                    <p className="text-sm text-gray-400 mt-0.5">
-                      {selectedDraft.article_count ?? 0} articles included
-                      {selectedDraft.status !== 'pending_approval' && (
-                        <span className={`ml-2 font-medium ${
-                          selectedDraft.status === 'published' ? 'text-green-600' : 'text-gray-400'
-                        }`}>
-                          {selectedDraft.status}
-                        </span>
-                      )}
-                    </p>
+                    <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                      <span className="text-sm text-gray-400">
+                        {selectedDraft.article_count ?? 0} articles included
+                        {selectedDraft.status !== 'pending_approval' && (
+                          <span className={`ml-2 font-medium ${
+                            selectedDraft.status === 'published' ? 'text-green-600' : 'text-gray-400'
+                          }`}>
+                            {selectedDraft.status}
+                          </span>
+                        )}
+                      </span>
+                      <button
+                        onClick={togglePaid}
+                        className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
+                          selectedDraft.is_paid
+                            ? 'bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200'
+                            : 'bg-gray-100 text-gray-500 border-gray-300 hover:bg-gray-200'
+                        }`}
+                      >
+                        <span className="text-base leading-none">{selectedDraft.is_paid ? '🔒' : '🔓'}</span>
+                        {selectedDraft.is_paid ? 'Paid (Newsletter+)' : 'Free — click to make paid'}
+                      </button>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     {msg && <span className="text-sm text-green-600 font-medium">{msg}</span>}
