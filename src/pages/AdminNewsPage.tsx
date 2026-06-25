@@ -242,7 +242,7 @@ export default function AdminNewsPage() {
 
   const startCreate = () => {
     const today = new Date().toISOString().slice(0, 10)
-    setCreateForm({ date: today, intro: '', sponsor: '', vendor: '' })
+    setCreateForm({ date: today, intro: '', sponsor: '', vendor: '', is_paid: false })
     setCreateErr('')
     setCreating(true)
     setSelectedDraft(null)
