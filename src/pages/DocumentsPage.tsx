@@ -209,7 +209,11 @@ export default function DocumentsPage() {
       addJob({ status: 'uploading', progress: 30 })
 
       // 3. Upload raw file to Supabase Storage
-      const filePath = `${user.id}/${Date.now()}_${file.name}`
+      const safeName = file.name
+        .replace(/[—–]/g, '-')
+        .replace(/[^\w.\-]/g, '_')
+        .replace(/_+/g, '_')
+      const filePath = `${user.id}/${Date.now()}_${safeName}`
       const { error: storageErr } = await supabase.storage
         .from('regulatory-documents')
         .upload(filePath, file)
