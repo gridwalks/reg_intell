@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { Send, Loader2, BookOpen, AlertTriangle, Bot, User, Sparkles, X, FileText, Newspaper, ExternalLink } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -312,7 +313,7 @@ export default function ChatPage() {
                 <section>
                   <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Sponsor Impact</h3>
                   <div className="prose-chat text-sm">
-                    <ReactMarkdown>{newsletterModal.sponsor_section}</ReactMarkdown>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{newsletterModal.sponsor_section}</ReactMarkdown>
                   </div>
                 </section>
               )}
@@ -320,7 +321,7 @@ export default function ChatPage() {
                 <section>
                   <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Vendor & eClinical Impact</h3>
                   <div className="prose-chat text-sm">
-                    <ReactMarkdown>{newsletterModal.vendor_section}</ReactMarkdown>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{newsletterModal.vendor_section}</ReactMarkdown>
                   </div>
                 </section>
               )}
@@ -402,10 +403,12 @@ function CitedMarkdown({ content, sources, onOpen }: {
     ),
   }
 
-  // Convert [https://...] bare URL brackets into proper markdown links
-  const processed = content.replace(/\[(https?:\/\/[^\]]+)\]/g, '[$1]($1)')
+  // Convert [https://...] bare URL brackets and standalone URLs into proper markdown links
+  const processed = content
+    .replace(/\[(https?:\/\/[^\]]+)\]/g, '[$1]($1)')
+    .replace(/(?<!\]\(|\[)(https?:\/\/[^\s<>\])"]+)/g, '[$1]($1)')
 
-  return <ReactMarkdown components={components}>{processed}</ReactMarkdown>
+  return <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>{processed}</ReactMarkdown>
 }
 
 function SourcesPanel({ sources, onOpen }: { sources: Source[]; onOpen: (src: Source) => void }) {
