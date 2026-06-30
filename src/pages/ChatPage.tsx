@@ -402,7 +402,10 @@ function CitedMarkdown({ content, sources, onOpen }: {
     ),
   }
 
-  return <ReactMarkdown components={components}>{content}</ReactMarkdown>
+  // Convert [https://...] bare URL brackets into proper markdown links
+  const processed = content.replace(/\[(https?:\/\/[^\]]+)\]/g, '[$1]($1)')
+
+  return <ReactMarkdown components={components}>{processed}</ReactMarkdown>
 }
 
 function SourcesPanel({ sources, onOpen }: { sources: Source[]; onOpen: (src: Source) => void }) {
