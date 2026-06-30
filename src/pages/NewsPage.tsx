@@ -1,8 +1,36 @@
-import { useEffect, useState } from 'react'
+import type React from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { Newspaper, Calendar, ChevronDown, ChevronUp, Lock } from 'lucide-react'
+import { Newspaper, Calendar, ChevronDown, ChevronUp, Lock, ExternalLink, BookOpen, AlertCircle, FileSearch } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+
+// ── Federal Register types ─────────────────────────────────────────────────
+
+type FRDoc = {
+  document_number: string
+  title: string
+  html_url: string
+  type?: string
+  agencies?: { name: string }[]
+  publication_date?: string
+  abstract?: string
+}
+
+type FRPublicInspectionDoc = {
+  document_number: string
+  title: string
+  html_url: string
+  document_types?: { name: string }[]
+  agencies?: { name: string }[]
+}
+
+type FRData = {
+  publicInspection: FRPublicInspectionDoc[]
+  significant: FRDoc[]
+  published: FRDoc[]
+  error: string | null
+}
 
 type Newsletter = {
   id: string
@@ -142,11 +170,183 @@ export default function NewsPage() {
                     <Section title="" content={nl.intro_text} />
                     <Section title="Sponsor impact" content={nl.sponsor_section} />
                     <Section title="Vendor and eClinical impact" content={nl.vendor_section} />
+                    <FederalRegisterSection date={nl.draft_date} />
                   </div>
                 )}
               </div>
             )
           })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function FederalRegisterSection({ date }: { date: string }) {
+  const [data, setData] = useState<FRData | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [open, setOpen] = useState(false)
+
+  const load = useCallback(async () => {
+    if (data) return
+    setLoading(true)
+    const base = 'https://www.federalregister.gov/api/v1'
+    const docFields = 'fields[]=title&fields[]=document_number&fields[]=html_url&fields[]=type&fields[]=agencies&fields[]=abstract&fields[]=publication_date'
+
+    // Week-ago date for significant docs
+    const d = new Date(date + 'T12:00:00Z')
+    const weekAgo = new Date(d)
+    weekAgo.setDate(d.getDate() - 7)
+    const weekAgoStr = weekAgo.toISOString().slice(0, 10)
+
+    try {
+      const [piRes, sigRes, pubRes] = await Promise.all([
+        fetch(`${base}/public-inspection-documents.json?fields[]=title&fields[]=document_number&fields[]=html_url&fields[]=document_types&fields[]=agencies&per_page=20`),
+        fetch(`${base}/documents.json?per_page=15&order=newest&${docFields}&conditions[significant]=1&conditions[publication_date][gte]=${weekAgoStr}&conditions[publication_date][lte]=${date}`),
+        fetch(`${base}/documents.json?per_page=20&order=newest&${docFields}&conditions[publication_date][gte]=${date}&conditions[publication_date][lte]=${date}`),
+      ])
+
+      const [piJson, sigJson, pubJson] = await Promise.all([piRes.json(), sigRes.json(), pubRes.json()])
+
+      setData({
+        publicInspection: piJson.results ?? [],
+        significant: sigJson.results ?? [],
+        published: pubJson.results ?? [],
+        error: null,
+      })
+    } catch {
+      setData({ publicInspection: [], significant: [], published: [], error: 'Failed to load Federal Register data.' })
+    }
+    setLoading(false)
+  }, [date, data])
+
+  const toggle = () => {
+    if (!open) load()
+    setOpen(o => !o)
+  }
+
+  return (
+    <div className="border border-indigo-100 rounded-xl overflow-hidden mt-8">
+      <button
+        onClick={toggle}
+        className="w-full flex items-center justify-between px-4 py-3 bg-indigo-50 hover:bg-indigo-100 transition-colors text-left"
+      >
+        <div className="flex items-center gap-2">
+          <BookOpen className="w-4 h-4 text-indigo-600 shrink-0" />
+          <span className="text-sm font-semibold text-indigo-800">Federal Register</span>
+          <span className="text-xs text-indigo-400">— Public Inspection · Significant · Published</span>
+        </div>
+        {open ? <ChevronUp className="w-4 h-4 text-indigo-400" /> : <ChevronDown className="w-4 h-4 text-indigo-400" />}
+      </button>
+
+      {open && (
+        <div className="px-4 py-4 space-y-6 bg-white">
+          {loading && <p className="text-xs text-gray-400">Loading Federal Register data…</p>}
+          {data?.error && (
+            <div className="flex items-center gap-2 text-xs text-red-600">
+              <AlertCircle className="w-3.5 h-3.5" /> {data.error}
+            </div>
+          )}
+          {data && !data.error && (
+            <>
+              <FRSubSection
+                title="Documents on Public Inspection"
+                icon={<FileSearch className="w-3.5 h-3.5 text-amber-600" />}
+                items={data.publicInspection.map(d => ({
+                  number: d.document_number,
+                  title: d.title,
+                  url: d.html_url,
+                  meta: d.document_types?.map(t => t.name).join(', ') ?? '',
+                  agencies: d.agencies?.map(a => a.name) ?? [],
+                }))}
+                emptyMsg="No documents currently on public inspection."
+              />
+              <FRSubSection
+                title="Significant Documents (past 7 days)"
+                icon={<AlertCircle className="w-3.5 h-3.5 text-red-500" />}
+                items={data.significant.map(d => ({
+                  number: d.document_number,
+                  title: d.title,
+                  url: d.html_url,
+                  meta: d.type ?? '',
+                  agencies: d.agencies?.map(a => a.name) ?? [],
+                  abstract: d.abstract,
+                }))}
+                emptyMsg="No significant documents in the past 7 days."
+              />
+              <FRSubSection
+                title={`Recently Published — ${new Date(date + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`}
+                icon={<Newspaper className="w-3.5 h-3.5 text-blue-500" />}
+                items={data.published.map(d => ({
+                  number: d.document_number,
+                  title: d.title,
+                  url: d.html_url,
+                  meta: d.type ?? '',
+                  agencies: d.agencies?.map(a => a.name) ?? [],
+                  abstract: d.abstract,
+                }))}
+                emptyMsg={`No documents published on ${date}.`}
+              />
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+type FRItem = { number: string; title: string; url: string; meta: string; agencies: string[]; abstract?: string }
+
+function FRSubSection({ title, icon, items, emptyMsg }: {
+  title: string
+  icon: React.ReactNode
+  items: FRItem[]
+  emptyMsg: string
+}) {
+  return (
+    <div>
+      <div className="flex items-center gap-1.5 mb-2">
+        {icon}
+        <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">{title}</h3>
+        {items.length > 0 && (
+          <span className="ml-1 text-xs font-medium text-gray-400">({items.length})</span>
+        )}
+      </div>
+      {items.length === 0 ? (
+        <p className="text-xs text-gray-400 italic">{emptyMsg}</p>
+      ) : (
+        <div className="space-y-2">
+          {items.map(item => (
+            <div key={item.number} className="text-xs border border-gray-100 rounded-lg px-3 py-2 hover:bg-gray-50">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <a
+                    href={item.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-indigo-700 hover:underline leading-snug block"
+                  >
+                    {item.title}
+                  </a>
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    {item.meta && <span className="text-gray-400">{item.meta}</span>}
+                    {item.agencies.slice(0, 2).map(a => (
+                      <span key={a} className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">{a}</span>
+                    ))}
+                    {item.agencies.length > 2 && (
+                      <span className="text-gray-400">+{item.agencies.length - 2} more</span>
+                    )}
+                  </div>
+                  {item.abstract && (
+                    <p className="text-gray-500 mt-1 line-clamp-2">{item.abstract}</p>
+                  )}
+                </div>
+                <a href={item.url} target="_blank" rel="noopener noreferrer" className="shrink-0 mt-0.5">
+                  <ExternalLink className="w-3 h-3 text-gray-400 hover:text-indigo-600" />
+                </a>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
