@@ -57,6 +57,41 @@ When answering:
 
 Always be precise, accurate, and practical for working regulatory professionals.`
 
+async function fetchFdaContext(): Promise<string> {
+  try {
+    const base = 'https://www.federalregister.gov/api/v1'
+    const fda = 'conditions[agencies][]=food-and-drug-administration'
+    const docFields = 'fields[]=title&fields[]=document_number&fields[]=html_url&fields[]=type&fields[]=abstract&fields[]=publication_date'
+    const today = new Date().toISOString().slice(0, 10)
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+
+    const [piRes, sigRes, pubRes] = await Promise.all([
+      fetch(`${base}/public-inspection-documents.json?fields[]=title&fields[]=document_number&fields[]=html_url&fields[]=document_types&fields[]=abstract&per_page=10&${fda}`),
+      fetch(`${base}/documents.json?per_page=10&order=newest&${docFields}&${fda}&conditions[significant]=1&conditions[publication_date][gte]=${weekAgo}&conditions[publication_date][lte]=${today}`),
+      fetch(`${base}/documents.json?per_page=10&order=newest&${docFields}&${fda}&conditions[publication_date][gte]=${today}&conditions[publication_date][lte]=${today}`),
+    ])
+
+    const [piJson, sigJson, pubJson] = await Promise.all([piRes.json(), sigRes.json(), pubRes.json()])
+
+    const fmt = (docs: Array<{ title: string; document_number: string; html_url: string; abstract?: string; type?: string; document_types?: Array<{ name: string }> }>) =>
+      docs.map(d =>
+        `- ${d.title} (${d.document_number}) [${d.html_url}]` +
+        (d.abstract ? `\n  ${d.abstract.slice(0, 200)}…` : '')
+      ).join('\n')
+
+    const sections: string[] = []
+    if (piJson.results?.length) sections.push(`FDA Documents on Public Inspection:\n${fmt(piJson.results)}`)
+    if (sigJson.results?.length) sections.push(`FDA Significant Documents (past 7 days):\n${fmt(sigJson.results)}`)
+    if (pubJson.results?.length) sections.push(`FDA Documents Published Today (${today}):\n${fmt(pubJson.results)}`)
+
+    return sections.length
+      ? `<federal_register_live_data>\nThe following is live data from the Federal Register as of ${today}. Use it to answer questions about recent FDA activity.\n\n${sections.join('\n\n')}\n</federal_register_live_data>`
+      : ''
+  } catch {
+    return '' // non-fatal — degrade gracefully
+  }
+}
+
 export const handler: Handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' }
@@ -75,11 +110,11 @@ export const handler: Handler = async (event) => {
       return { statusCode: 400, body: JSON.stringify({ error: 'Missing message' }) }
     }
 
-    // 1. Embed the query
-    const { data: embedData } = await openai.embeddings.create({
-      model: 'text-embedding-3-small',
-      input: message,
-    })
+    // 1. Embed the query and fetch live FR data in parallel
+    const [{ data: embedData }, fdaContext] = await Promise.all([
+      openai.embeddings.create({ model: 'text-embedding-3-small', input: message }),
+      fetchFdaContext(),
+    ])
     const queryEmbedding = embedData[0].embedding
 
     // 2. Retrieve relevant chunks via pgvector similarity search (documents + newsletters in parallel)
@@ -194,7 +229,7 @@ export const handler: Handler = async (event) => {
         '\n</regulatory_context>'
     }
 
-    const userContent = contextBlock ? `${contextBlock}\n\nQuestion: ${message}` : message
+    const userContent = [contextBlock, fdaContext, `Question: ${message}`].filter(Boolean).join('\n\n')
 
     // 4. Build message history for Groq
     type ChatMsg = { role: 'user' | 'assistant'; content: string }
