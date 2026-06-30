@@ -69,9 +69,37 @@ Always distinguish between:
 Under EU CTR 536/2014:
 - Fatal/life-threatening SUSARs: initial report within 7 calendar days of sponsor awareness; follow-up within 8 additional days (15 days total).
 - Non-fatal/non-life-threatening SUSARs: 15 calendar days from sponsor awareness.
-- Reporting route: EudraVigilance electronic portal.
+- Reporting route: EudraVigilance electronic portal (EVCTM module).
+- Also notify all participating Member States via CTIS.
+
+**FEDERAL REGISTER USAGE RULE:**
+The <federal_register_live_data> block contains recent FDA notices that may cover tobacco, food, devices, cosmetics, and other non-drug topics. You MUST apply this filter before using any Federal Register item: only include it in your answer if it is directly relevant to the user's specific question (same therapeutic area, regulatory pathway, or drug/biologic topic). If no Federal Register item is relevant to the question, do not mention the Federal Register at all. Never surface tobacco, food, or device-only regulatory actions in response to a pharmaceutical/clinical trial/pharmacovigilance question.
 
 Always be precise, accurate, and practical for working regulatory professionals.`
+
+// HyDE: generate a short hypothetical regulatory document excerpt to improve retrieval
+// Embedding the expected answer rather than the raw query bridges the gap between
+// conversational language and formal legal/regulatory text in the corpus.
+async function generateHypotheticalExcerpt(query: string): Promise<string> {
+  try {
+    const completion = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are a pharmaceutical regulatory document generator. Write a SHORT (3–5 sentence) passage in the style of an official regulatory guidance or legislation that directly answers the following question. Use formal regulatory language with terms that would appear in EMA guidelines, ICH guidances, CFR sections, or EU regulations. Output ONLY the passage — no introduction, no commentary.',
+        },
+        { role: 'user', content: query },
+      ],
+      max_tokens: 200,
+      temperature: 0.1,
+    })
+    return completion.choices[0]?.message?.content ?? query
+  } catch {
+    return query // fall back to raw query on failure
+  }
+}
 
 async function fetchFdaContext(): Promise<string> {
   try {
@@ -81,10 +109,13 @@ async function fetchFdaContext(): Promise<string> {
     const today = new Date().toISOString().slice(0, 10)
     const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
+    // Restrict to Rule and Proposed Rule types — excludes tobacco/food/device notices
+    // that are technically FDA but irrelevant to pharma/clinical/PV queries
+    const pharmaTypes = 'conditions[type][]=Rule&conditions[type][]=Proposed%20Rule&conditions[type][]=Notice'
     const [piRes, sigRes, pubRes] = await Promise.all([
       fetch(`${base}/public-inspection-documents.json?fields[]=title&fields[]=document_number&fields[]=html_url&fields[]=document_types&fields[]=abstract&per_page=10&${fda}`),
-      fetch(`${base}/documents.json?per_page=10&order=newest&${docFields}&${fda}&conditions[significant]=1&conditions[publication_date][gte]=${weekAgo}&conditions[publication_date][lte]=${today}`),
-      fetch(`${base}/documents.json?per_page=10&order=newest&${docFields}&${fda}&conditions[publication_date][gte]=${today}&conditions[publication_date][lte]=${today}`),
+      fetch(`${base}/documents.json?per_page=10&order=newest&${docFields}&${fda}&${pharmaTypes}&conditions[significant]=1&conditions[publication_date][gte]=${weekAgo}&conditions[publication_date][lte]=${today}`),
+      fetch(`${base}/documents.json?per_page=10&order=newest&${docFields}&${fda}&${pharmaTypes}&conditions[publication_date][gte]=${today}&conditions[publication_date][lte]=${today}`),
     ])
 
     const [piJson, sigJson, pubJson] = await Promise.all([piRes.json(), sigRes.json(), pubRes.json()])
@@ -126,11 +157,18 @@ export const handler: Handler = async (event) => {
       return { statusCode: 400, body: JSON.stringify({ error: 'Missing message' }) }
     }
 
-    // 1. Embed the query and fetch live FR data in parallel
-    const [{ data: embedData }, fdaContext] = await Promise.all([
-      openai.embeddings.create({ model: 'text-embedding-3-small', input: message }),
+    // 1. Generate hypothetical excerpt (HyDE) and fetch live FR data in parallel
+    const [hypotheticalExcerpt, fdaContext] = await Promise.all([
+      generateHypotheticalExcerpt(message),
       fetchFdaContext(),
     ])
+
+    // Embed the HyDE excerpt — formal regulatory language matches corpus chunks better
+    // than embedding the raw conversational query
+    const { data: embedData } = await openai.embeddings.create({
+      model: 'text-embedding-3-small',
+      input: hypotheticalExcerpt,
+    })
     const queryEmbedding = embedData[0].embedding
 
     // 2. Retrieve relevant chunks via pgvector similarity search (documents + newsletters in parallel)
