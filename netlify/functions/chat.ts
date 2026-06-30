@@ -55,6 +55,12 @@ When answering:
 7. Structure complex answers with clear headings and bullet points
 8. For critical regulatory decisions, recommend consultation with qualified regulatory affairs professionals
 
+**Confidence and sourcing requirement — do not hallucinate:**
+- Only state something as fact if it is supported by a numbered source [1], [2], etc. in <regulatory_context>, or by the live data in <federal_register_live_data>.
+- If the <regulatory_context> block is missing, empty, or marked low-confidence for this question, you may still draw on general regulatory knowledge, but you MUST open your answer with a clearly visible flag, e.g. "⚠️ No matching source found in your uploaded documents or newsletters — this answer draws on general regulatory knowledge and should be independently verified." Do not skip this flag, and do not present general knowledge as if it came from the user's documents.
+- Never invent a document name, section number, guidance number, or citation that was not explicitly given to you. If you are not certain a specific number/section exists, say so instead of guessing.
+- If a question asks about something highly specific (an exact CFR subsection, a specific recent filing, a specific company/product detail) and you don't have a source for that exact detail, say plainly that you don't have a verified source for that specific point rather than approximating an answer.
+
 Always be precise, accurate, and practical for working regulatory professionals.`
 
 async function fetchFdaContext(): Promise<string> {
@@ -218,6 +224,11 @@ export const handler: Handler = async (event) => {
     sources.length = 0
     sources.push(...deduped)
 
+    // High-confidence threshold — below this, retrieved chunks are too weak to ground an answer
+    const CONFIDENCE_THRESHOLD = 0.55
+    const maxSimilarity = sources.reduce((max, s) => Math.max(max, s.similarity), 0)
+    const isLowConfidence = sources.length === 0 || maxSimilarity < CONFIDENCE_THRESHOLD
+
     if (contextParts.length > 0) {
       // Number each source so the AI can cite them inline as [1], [2], etc.
       const numberedContext = sources
@@ -226,7 +237,10 @@ export const handler: Handler = async (event) => {
       contextBlock =
         '<regulatory_context>\nThe following sources are available. Cite them inline in your answer using [1], [2], etc. when drawing on specific content.\n\n' +
         numberedContext +
-        '\n</regulatory_context>'
+        `\n</regulatory_context>\n\n<confidence_note>Best matching source similarity: ${Math.round(maxSimilarity * 100)}%. ${isLowConfidence ? 'This is BELOW the high-confidence threshold — treat this context as weak/possibly irrelevant and you MUST include the no-source-found warning unless the Federal Register live data fully answers the question.' : 'This meets the high-confidence threshold.'}</confidence_note>`
+    } else {
+      contextBlock =
+        '<confidence_note>No matching content was found in the user\'s uploaded documents or newsletters for this question. You MUST include the no-source-found warning at the start of your answer, unless the Federal Register live data below fully answers the question.</confidence_note>'
     }
 
     const userContent = [contextBlock, fdaContext, `Question: ${message}`].filter(Boolean).join('\n\n')
@@ -254,7 +268,7 @@ export const handler: Handler = async (event) => {
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: answerText, sources }),
+      body: JSON.stringify({ message: answerText, sources, lowConfidence: isLowConfidence }),
     }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Unknown error'

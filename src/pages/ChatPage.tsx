@@ -19,6 +19,7 @@ type Message = {
   role: 'user' | 'assistant'
   content: string
   sources?: Source[]
+  lowConfidence?: boolean
 }
 
 type NewsletterDetail = {
@@ -109,8 +110,8 @@ export default function ChatPage() {
         throw new Error(error || 'Query failed')
       }
 
-      const { message, sources } = await res.json()
-      setMessages(prev => [...prev, { role: 'assistant', content: message, sources }])
+      const { message, sources, lowConfidence } = await res.json()
+      setMessages(prev => [...prev, { role: 'assistant', content: message, sources, lowConfidence }])
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Something went wrong.')
     } finally {
@@ -180,6 +181,12 @@ export default function ChatPage() {
                   </div>
                 ) : (
                   <div className="bg-white border border-gray-200 rounded-2xl rounded-tl-sm px-5 py-4 shadow-sm">
+                    {msg.lowConfidence && (
+                      <div className="flex items-start gap-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
+                        <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                        No strong match found in your uploaded documents or newsletters for this question — this answer may rely on general knowledge. Verify independently.
+                      </div>
+                    )}
                     <div className="prose-chat">
                       <CitedMarkdown content={msg.content} sources={msg.sources ?? []} onOpen={openDocument} />
                     </div>
