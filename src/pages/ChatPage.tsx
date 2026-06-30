@@ -389,6 +389,17 @@ function CitedMarkdown({ content, sources, onOpen }: {
     h4: ({ children }) => <h4>{React.Children.map(children, injectCitations)}</h4>,
     td: ({ children }) => <td>{React.Children.map(children, injectCitations)}</td>,
     th: ({ children }) => <th>{React.Children.map(children, injectCitations)}</th>,
+    a: ({ href, children }) => (
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-0.5 text-indigo-600 hover:text-indigo-800 underline underline-offset-2"
+      >
+        {children}
+        <ExternalLink className="w-3 h-3 shrink-0 ml-0.5 opacity-70" />
+      </a>
+    ),
   }
 
   return <ReactMarkdown components={components}>{content}</ReactMarkdown>
