@@ -200,10 +200,11 @@ function FederalRegisterSection({ date }: { date: string }) {
     const weekAgoStr = weekAgo.toISOString().slice(0, 10)
 
     try {
+      const fda = 'conditions[agencies][]=food-and-drug-administration'
       const [piRes, sigRes, pubRes] = await Promise.all([
-        fetch(`${base}/public-inspection-documents.json?fields[]=title&fields[]=document_number&fields[]=html_url&fields[]=document_types&fields[]=agencies&per_page=20`),
-        fetch(`${base}/documents.json?per_page=15&order=newest&${docFields}&conditions[significant]=1&conditions[publication_date][gte]=${weekAgoStr}&conditions[publication_date][lte]=${date}`),
-        fetch(`${base}/documents.json?per_page=20&order=newest&${docFields}&conditions[publication_date][gte]=${date}&conditions[publication_date][lte]=${date}`),
+        fetch(`${base}/public-inspection-documents.json?fields[]=title&fields[]=document_number&fields[]=html_url&fields[]=document_types&fields[]=agencies&per_page=20&${fda}`),
+        fetch(`${base}/documents.json?per_page=15&order=newest&${docFields}&${fda}&conditions[significant]=1&conditions[publication_date][gte]=${weekAgoStr}&conditions[publication_date][lte]=${date}`),
+        fetch(`${base}/documents.json?per_page=20&order=newest&${docFields}&${fda}&conditions[publication_date][gte]=${date}&conditions[publication_date][lte]=${date}`),
       ])
 
       const [piJson, sigJson, pubJson] = await Promise.all([piRes.json(), sigRes.json(), pubRes.json()])
