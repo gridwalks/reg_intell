@@ -171,11 +171,12 @@ export const handler: Handler = async (event) => {
     })
     const queryEmbedding = embedData[0].embedding
 
-    // 2. Retrieve relevant chunks via pgvector similarity search (documents + newsletters in parallel)
+    // 2. Hybrid retrieval: RRF over semantic (HyDE embedding) + keyword (raw query)
+    // Newsletter chunks still use pure semantic — they're prose, not formal legal text
     const [docResult, newsResult] = await Promise.all([
-      supabase.rpc('match_document_chunks', {
+      supabase.rpc('hybrid_match_document_chunks', {
+        query_text: message,
         query_embedding: queryEmbedding,
-        match_threshold: 0.45,
         match_count: 8,
         p_user_id: user.id,
       }),

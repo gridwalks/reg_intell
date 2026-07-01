@@ -82,7 +82,7 @@ export const handler: Handler = async (event) => {
       }
     }
 
-    // ── Test retrieval: embed query, run similarity search ────────────────────
+    // ── Test retrieval: hybrid semantic + keyword search ─────────────────────
     if (body.action === 'test_retrieval') {
       const { query, match_count = 10 } = body
       if (!query?.trim()) return { statusCode: 400, body: 'Missing query' }
@@ -91,9 +91,11 @@ export const handler: Handler = async (event) => {
         input: query,
       })
       const embedding = embedData[0].embedding
-      const { data, error } = await supabase.rpc('admin_match_document_chunks', {
+      const { data, error } = await supabase.rpc('hybrid_match_document_chunks', {
+        query_text: query,
         query_embedding: embedding,
         match_count,
+        p_user_id: null,
       })
       if (error) throw new Error(error.message ?? JSON.stringify(error))
       return {
