@@ -9,6 +9,7 @@ import {
   Newspaper,
   ShieldCheck,
   Users,
+  Database,
 } from 'lucide-react'
 import { useAuth, type Tier } from '../contexts/AuthContext'
 
@@ -53,8 +54,9 @@ export default function Layout() {
               <NavItem to="/dashboard" icon={LayoutDashboard} label="Dashboard" />
               <NavItem to="/documents" icon={FileText} label="Documents" />
               <p className="text-indigo-400 text-xs px-3 mt-3 mb-1.5 uppercase tracking-wide font-medium">Admin</p>
-              <NavItem to="/admin/news" icon={ShieldCheck} label="News admin" />
-              <NavItem to="/admin/users" icon={Users} label="Users" />
+              <NavItem to="/admin/news"   icon={ShieldCheck} label="News admin" />
+              <NavItem to="/admin/users"  icon={Users}       label="Users" />
+              <NavItem to="/admin/corpus" icon={Database}    label="Corpus inspector" />
             </div>
           )}
         </nav>

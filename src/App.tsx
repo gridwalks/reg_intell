@@ -9,6 +9,7 @@ import ChatPage from './pages/ChatPage'
 import NewsPage from './pages/NewsPage'
 import AdminNewsPage from './pages/AdminNewsPage'
 import AdminUsersPage from './pages/AdminUsersPage'
+import AdminCorpusPage from './pages/AdminCorpusPage'
 import PendingApprovalPage from './pages/PendingApprovalPage'
 import UpdatePasswordPage from './pages/UpdatePasswordPage'
 
@@ -81,7 +82,8 @@ export default function App() {
         <Route path="/dashboard" element={<AdminRoute><DashboardPage /></AdminRoute>} />
         <Route path="/documents" element={<AdminRoute><DocumentsPage /></AdminRoute>} />
         <Route path="/admin/news"  element={<AdminRoute><AdminNewsPage /></AdminRoute>} />
-        <Route path="/admin/users" element={<AdminRoute><AdminUsersPage /></AdminRoute>} />
+        <Route path="/admin/users"   element={<AdminRoute><AdminUsersPage /></AdminRoute>} />
+        <Route path="/admin/corpus" element={<AdminRoute><AdminCorpusPage /></AdminRoute>} />
 
         {/* All approved users */}
         <Route path="/news" element={<NewsPage />} />
