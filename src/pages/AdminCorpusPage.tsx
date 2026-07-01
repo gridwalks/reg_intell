@@ -64,6 +64,10 @@ export default function AdminCorpusPage() {
   const [retrievalQuery, setRetrievalQuery] = useState('')
   const [retrievalResults, setRetrievalResults] = useState<RetrievalHit[]>([])
   const [retrievalLoading, setRetrievalLoading] = useState(false)
+  const [retrievalError, setRetrievalError] = useState('')
+
+  // Search tab error
+  const [searchError, setSearchError] = useState('')
 
   const loadDocs = useCallback(async () => {
     if (!session) return
@@ -87,16 +91,28 @@ export default function AdminCorpusPage() {
   const runSearch = async () => {
     if (!searchQuery.trim() || !session) return
     setSearchLoading(true)
+    setSearchError('')
     const data = await callApi(session, { action: 'search_chunks', query: searchQuery })
-    setSearchResults(Array.isArray(data) ? data : [])
+    if (Array.isArray(data)) {
+      setSearchResults(data)
+    } else {
+      setSearchError(data?.error ?? 'Unknown error')
+      setSearchResults([])
+    }
     setSearchLoading(false)
   }
 
   const runRetrieval = async () => {
     if (!retrievalQuery.trim() || !session) return
     setRetrievalLoading(true)
+    setRetrievalError('')
+    setRetrievalResults([])
     const data = await callApi(session, { action: 'test_retrieval', query: retrievalQuery, match_count: 10 })
-    setRetrievalResults(Array.isArray(data) ? data : [])
+    if (Array.isArray(data)) {
+      setRetrievalResults(data)
+    } else {
+      setRetrievalError(data?.error ?? 'Unknown error — check that migration 018 has been run in Supabase')
+    }
     setRetrievalLoading(false)
   }
 
@@ -248,7 +264,12 @@ export default function AdminCorpusPage() {
             </div>
           )}
 
-          {!searchLoading && searchResults.length === 0 && searchQuery && (
+          {searchError && (
+            <div className="flex items-start gap-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3">
+              <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />{searchError}
+            </div>
+          )}
+          {!searchLoading && !searchError && searchResults.length === 0 && searchQuery && (
             <div className="text-center py-10 text-sm text-gray-400">
               No chunks matched <span className="font-medium text-gray-600">"{searchQuery}"</span>
             </div>
@@ -303,8 +324,18 @@ export default function AdminCorpusPage() {
             </div>
           )}
 
-          {!retrievalLoading && retrievalResults.length === 0 && retrievalQuery && (
-            <div className="text-center py-10 text-sm text-gray-400">No results yet — run the query above.</div>
+          {retrievalError && (
+            <div className="flex items-start gap-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+              <div>
+                <p className="font-medium">Retrieval failed</p>
+                <p className="mt-0.5 font-mono">{retrievalError}</p>
+                <p className="mt-1 text-red-500">Make sure migration 018 has been run in the Supabase SQL editor.</p>
+              </div>
+            </div>
+          )}
+          {!retrievalLoading && !retrievalError && retrievalResults.length === 0 && retrievalQuery && (
+            <div className="text-center py-10 text-sm text-gray-400">No results — the query returned no chunks above the similarity floor.</div>
           )}
         </div>
       )}
