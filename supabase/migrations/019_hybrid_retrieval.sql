@@ -1,10 +1,4 @@
--- Add tsvector column for full-text search on document chunks
-alter table public.document_chunks
-  add column if not exists content_tsvector tsvector
-    generated always as (to_tsvector('english', content)) stored;
-
--- Note: GIN index on content_tsvector omitted — create manually if needed:
--- SET maintenance_work_mem = '256MB'; CREATE INDEX ... USING gin(content_tsvector);
+-- No stored column — tsvector computed inline in queries to avoid memory limits
 
 -- ── Hybrid match for regular users (RRF: semantic + keyword) ─────────────────
 create or replace function public.hybrid_match_document_chunks(
@@ -36,13 +30,13 @@ as $$
   keyword as (
     select dc.id,
            row_number() over (
-             order by ts_rank(dc.content_tsvector, plainto_tsquery('english', query_text)) desc
+             order by ts_rank(to_tsvector('english', dc.content), plainto_tsquery('english', query_text)) desc
            ) as rank
     from public.document_chunks dc
     join public.documents d on d.id = dc.document_id
     where (p_user_id is null or d.user_id = p_user_id)
       and d.status = 'ready'
-      and dc.content_tsvector @@ plainto_tsquery('english', query_text)
+      and to_tsvector('english', dc.content) @@ plainto_tsquery('english', query_text)
     limit 60
   ),
   fused as (
@@ -91,6 +85,3 @@ as $$
   );
 $$;
 
--- Backfill: ensure existing rows have the generated column populated
--- (generated columns auto-populate on the next write; explicit update not needed
---  for GENERATED ALWAYS AS STORED — Postgres fills it on the ALTER TABLE itself)
