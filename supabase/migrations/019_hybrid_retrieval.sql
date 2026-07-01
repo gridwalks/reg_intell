@@ -3,9 +3,8 @@ alter table public.document_chunks
   add column if not exists content_tsvector tsvector
     generated always as (to_tsvector('english', content)) stored;
 
--- GIN index for fast full-text search
-create index if not exists document_chunks_fts_idx
-  on public.document_chunks using gin(content_tsvector);
+-- Note: GIN index on content_tsvector omitted — create manually if needed:
+-- SET maintenance_work_mem = '256MB'; CREATE INDEX ... USING gin(content_tsvector);
 
 -- ── Hybrid match for regular users (RRF: semantic + keyword) ─────────────────
 create or replace function public.hybrid_match_document_chunks(
