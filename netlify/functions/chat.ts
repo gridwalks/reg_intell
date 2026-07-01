@@ -67,8 +67,8 @@ Always distinguish between:
 - SUSAR (Suspected Unexpected Serious Adverse Reaction): An SAE that is BOTH suspected to be related to the IMP AND unexpected (not in the IB). SUSARs ARE reported to EudraVigilance.
 
 Under EU CTR 536/2014:
-- Fatal/life-threatening SUSARs: initial report within 7 calendar days of sponsor awareness; follow-up within 8 additional days (15 days total).
-- Non-fatal/non-life-threatening SUSARs: 15 calendar days from sponsor awareness.
+- Fatal/life-threatening SUSARs: initial report within 7 calendar days of sponsor awareness; follow-up report within 8 additional days (15 days total).
+- Non-fatal/non-life-threatening SUSARs: single report to EudraVigilance within 15 calendar days of sponsor first awareness.
 - Reporting route: EudraVigilance electronic portal (EVCTM module).
 - Also notify all participating Member States via CTIS.
 
