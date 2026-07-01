@@ -285,7 +285,7 @@ export const handler: Handler = async (event) => {
       contextBlock =
         '<regulatory_context>\nThe following sources are available. Cite them inline in your answer using [1], [2], etc. when drawing on specific content.\n\n' +
         numberedContext +
-        `\n</regulatory_context>\n\n<confidence_note>Best matching source similarity: ${Math.round(maxSimilarity * 100)}%. ${isLowConfidence ? 'This is BELOW the high-confidence threshold — treat this context as weak/possibly irrelevant and you MUST include the no-source-found warning unless the Federal Register live data fully answers the question.' : 'This meets the high-confidence threshold.'}</confidence_note>`
+        `\n</regulatory_context>`
     } else {
       contextBlock =
         '<confidence_note>No matching content was found in the user\'s uploaded documents or newsletters for this question. You MUST include the no-source-found warning at the start of your answer, unless the Federal Register live data below fully answers the question.</confidence_note>'
