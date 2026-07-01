@@ -35,7 +35,7 @@ export const handler: Handler = async (event) => {
         .from('documents')
         .select('id, name, status, chunk_count, file_size, file_type, created_at, updated_at, processing_error, user_id')
         .order('created_at', { ascending: false })
-      if (error) throw error
+      if (error) throw new Error(error.message ?? JSON.stringify(error))
       // Attach owner emails
       const userIds = [...new Set((data ?? []).map((d: { user_id: string }) => d.user_id))]
       const { data: profiles } = await supabase
@@ -57,7 +57,7 @@ export const handler: Handler = async (event) => {
         .select('id, chunk_index, page_hint, content, created_at')
         .eq('document_id', document_id)
         .order('chunk_index', { ascending: true })
-      if (error) throw error
+      if (error) throw new Error(error.message ?? JSON.stringify(error))
       return {
         statusCode: 200,
         headers: { 'Content-Type': 'application/json' },
@@ -74,7 +74,7 @@ export const handler: Handler = async (event) => {
         .select('id, chunk_index, page_hint, content, document_id, documents!inner(name, status)')
         .ilike('content', `%${query.trim()}%`)
         .limit(50)
-      if (error) throw error
+      if (error) throw new Error(error.message ?? JSON.stringify(error))
       return {
         statusCode: 200,
         headers: { 'Content-Type': 'application/json' },
@@ -95,7 +95,7 @@ export const handler: Handler = async (event) => {
         query_embedding: embedding,
         match_count,
       })
-      if (error) throw error
+      if (error) throw new Error(error.message ?? JSON.stringify(error))
       return {
         statusCode: 200,
         headers: { 'Content-Type': 'application/json' },
@@ -105,7 +105,11 @@ export const handler: Handler = async (event) => {
 
     return { statusCode: 400, body: JSON.stringify({ error: 'Unknown action' }) }
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = err instanceof Error
+      ? err.message
+      : typeof err === 'object' && err !== null
+        ? JSON.stringify(err)
+        : String(err)
     console.error('corpus-inspect error:', msg)
     return { statusCode: 500, body: JSON.stringify({ error: msg }) }
   }
