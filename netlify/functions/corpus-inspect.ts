@@ -82,13 +82,31 @@ export const handler: Handler = async (event) => {
       }
     }
 
-    // ── Test retrieval: hybrid semantic + keyword search ─────────────────────
+    // ── Test retrieval: hybrid semantic + keyword search with HyDE ───────────
     if (body.action === 'test_retrieval') {
       const { query, match_count = 10 } = body
       if (!query?.trim()) return { statusCode: 400, body: 'Missing query' }
+
+      // HyDE: embed a hypothetical regulatory document excerpt, not the raw query
+      const hydeCompletion = await new (await import('groq-sdk')).default({
+        apiKey: process.env.GROQ_API_KEY!,
+      }).chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          {
+            role: 'system',
+            content: 'Write a SHORT (3–5 sentence) passage in the style of an official regulatory guidance or EU regulation that directly answers the question. Use formal regulatory language. Output ONLY the passage.',
+          },
+          { role: 'user', content: query },
+        ],
+        max_tokens: 200,
+        temperature: 0.1,
+      })
+      const hydeText = hydeCompletion.choices[0]?.message?.content ?? query
+
       const { data: embedData } = await openai.embeddings.create({
         model: 'text-embedding-3-small',
-        input: query,
+        input: hydeText,
       })
       const embedding = embedData[0].embedding
       const { data, error } = await supabase.rpc('hybrid_match_document_chunks', {
@@ -98,10 +116,22 @@ export const handler: Handler = async (event) => {
         p_user_id: null,
       })
       if (error) throw new Error(error.message ?? JSON.stringify(error))
+
+      // Normalize RRF scores relative to top result — raw values (~0.01–0.03) are meaningless as %
+      const rows = (data ?? []) as Record<string, unknown>[]
+      const maxScore = rows.length > 0 ? (rows[0].similarity as number) : 1
+      const normalized = rows.map((r, i) => ({
+        ...r,
+        rrf_score: r.similarity,
+        similarity: maxScore > 0 ? (r.similarity as number) / maxScore : 0,
+        rank: i + 1,
+        hyde_text: hydeText,
+      }))
+
       return {
         statusCode: 200,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data ?? []),
+        body: JSON.stringify(normalized),
       }
     }
 

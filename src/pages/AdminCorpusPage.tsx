@@ -30,7 +30,10 @@ type RetrievalHit = {
   chunk_index: number
   content: string
   similarity: number
+  rrf_score: number
+  rank: number
   page_hint: string | null
+  hyde_text?: string
 }
 
 type Tab = 'documents' | 'search' | 'retrieval'
@@ -303,7 +306,15 @@ export default function AdminCorpusPage() {
 
           {retrievalResults.length > 0 && (
             <div className="space-y-3">
-              <p className="text-xs text-gray-400">Top {retrievalResults.length} chunks by cosine similarity</p>
+              {retrievalResults[0]?.hyde_text && (
+                <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-xs text-blue-700">
+                  <span className="font-semibold">HyDE excerpt used for embedding: </span>
+                  {retrievalResults[0].hyde_text}
+                </div>
+              )}
+              <p className="text-xs text-gray-400">
+                Top {retrievalResults.length} chunks · scores normalized (rank #1 = 100%)
+              </p>
               {retrievalResults.map((hit, i) => (
                 <div key={hit.id} className="border border-gray-200 rounded-xl overflow-hidden">
                   <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b border-gray-100">
