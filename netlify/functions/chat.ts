@@ -273,10 +273,9 @@ export const handler: Handler = async (event) => {
     sources.length = 0
     sources.push(...deduped)
 
-    // High-confidence threshold — below this, retrieved chunks are too weak to ground an answer
-    const CONFIDENCE_THRESHOLD = 0.55
-    const maxSimilarity = sources.reduce((max, s) => Math.max(max, s.similarity), 0)
-    const isLowConfidence = sources.length === 0 || maxSimilarity < CONFIDENCE_THRESHOLD
+    // Hybrid retrieval returns RRF scores (~0.01–0.03), not cosine similarity.
+    // Confidence is binary: if chunks came back they matched via keyword or semantic — trust them.
+    const isLowConfidence = sources.length === 0
 
     if (contextParts.length > 0) {
       // Number each source so the AI can cite them inline as [1], [2], etc.
