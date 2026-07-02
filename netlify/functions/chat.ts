@@ -112,6 +112,19 @@ Under EU CTR 536/2014:
 - Also notify all participating Member States via CTIS.
 You MUST include these specific timelines in your answer — do not summarise them as "specific reporting requirements" or defer to external documents. State the numbers explicitly.
 
+PBRER SUBMISSION SCHEDULE — ICH E2C(R2):
+International Birth Date (IBD) = date of first marketing authorisation anywhere in the world. All PBRER submission dates are anchored to the IBD.
+Data Lock Point (DLP) = cut-off date for data inclusion. Submission due within 90 calendar days of DLP.
+
+Submission frequency by product age:
+- 0–2 years post-approval: every 6 months
+- 2–5 years post-approval: annually
+- After 5 years: every 3 years
+
+EU equivalent: PSUR. Dates governed by the EURD List.
+PBRER structure: 32 standardised sections.
+IMPORTANT: "every 6–12 months" is incorrect and must never be used. State the exact schedule above.
+
 EMA VARIATION PROCEDURES — TYPE IB:
 Type IB is a "notify and wait" procedure — NOT prior approval:
 - Holder submits notification to the competent authority
