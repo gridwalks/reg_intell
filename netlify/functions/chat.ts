@@ -112,10 +112,46 @@ Under EU CTR 536/2014:
 - Also notify all participating Member States via CTIS.
 You MUST include these specific timelines in your answer — do not summarise them as "specific reporting requirements" or defer to external documents. State the numbers explicitly.
 
+ICH E6(R3) — RISK-BASED QUALITY MANAGEMENT (RBQM):
+"RBQM" is an industry term (popularised by TransCelerate) for the quality management approach that is a core principle of ICH E6(R3) (finalised 2023, effective 2025). ICH E6(R3) does NOT use the acronym "RBQM" — it describes the same concept through these principles:
+- Quality Management System (QMS): sponsors must establish a QMS with a risk-proportionate approach throughout the trial lifecycle.
+- Fit-for-purpose: oversight activities (monitoring, audits, SDV) should be proportionate to the risk of each trial activity — not applied uniformly.
+- Quality Tolerance Limits (QTLs): pre-defined thresholds for critical quality and safety parameters; breaching a QTL triggers investigation.
+- Centralized monitoring: systematic, risk-based review of accumulating data as a complement or alternative to on-site monitoring.
+- Proportionality: the level of control applied to any process should match the risk that process poses to patient safety and data integrity.
+Key shift from E6(R2): R2 implied 100% source data verification (SDV) as the standard. R3 explicitly states that on-site monitoring and SDV should be risk-based and fit-for-purpose — not conducted by default.
+When answering any RBQM question, explicitly connect the industry term to the E6(R3) language above.
+
 **FEDERAL REGISTER USAGE RULE:**
 The <federal_register_live_data> block contains recent FDA notices that may cover tobacco, food, devices, cosmetics, and other non-drug topics. You MUST apply this filter before using any Federal Register item: only include it in your answer if it is directly relevant to the user's specific question (same therapeutic area, regulatory pathway, or drug/biologic topic). If no Federal Register item is relevant to the question, do not mention the Federal Register at all. Never surface tobacco, food, or device-only regulatory actions in response to a pharmaceutical/clinical trial/pharmacovigilance question.
 
 Always be precise, accurate, and practical for working regulatory professionals.`
+
+// Industry acronym → regulatory language expansion map
+// Covers terms that appear in industry practice but NOT verbatim in official guidances.
+// Applied before HyDE so the hypothetical excerpt uses document language.
+const TERM_EXPANSIONS: Record<string, string> = {
+  'RBQM':   'RBQM risk-based quality management risk-proportionate quality oversight fit-for-purpose clinical trial quality management system ICH E6(R3) QTL quality tolerance limits centralized monitoring',
+  'RBM':    'risk-based monitoring centralized monitoring on-site monitoring source data verification SDV risk-proportionate ICH E6(R3)',
+  'RTSM':   'RTSM randomisation trial supply management interactive response technology IRT IVRS IWRS',
+  'eTMF':   'eTMF electronic trial master file TMF ICH E6 essential documents',
+  'CTMS':   'CTMS clinical trial management system trial oversight monitoring',
+  'CDISC':  'CDISC CDASH SDTM ADaM clinical data standards FDA submission',
+  'CSR':    'CSR clinical study report ICH E3 integrated summary efficacy safety',
+  'CIOMS':  'CIOMS council international organisations medical sciences pharmacovigilance adverse reaction reporting',
+}
+
+function expandTerms(query: string): string {
+  let expanded = query
+  for (const [term, expansion] of Object.entries(TERM_EXPANSIONS)) {
+    const regex = new RegExp(`\\b${term}\\b`, 'gi')
+    if (regex.test(expanded)) {
+      expanded = `${expanded} ${expansion}`
+      break // one expansion per query is enough
+    }
+  }
+  return expanded
+}
 
 // HyDE: generate a short hypothetical regulatory document excerpt to improve retrieval
 // Embedding the expected answer rather than the raw query bridges the gap between
@@ -197,9 +233,10 @@ export const handler: Handler = async (event) => {
       return { statusCode: 400, body: JSON.stringify({ error: 'Missing message' }) }
     }
 
-    // 1. Generate hypothetical excerpt (HyDE) and fetch live FR data in parallel
+    // 1. Expand industry acronyms → regulatory language, then generate HyDE + fetch FR in parallel
+    const expandedQuery = expandTerms(message)
     const [hypotheticalExcerpt, fdaContext] = await Promise.all([
-      generateHypotheticalExcerpt(message),
+      generateHypotheticalExcerpt(expandedQuery),
       fetchFdaContext(),
     ])
 
@@ -215,7 +252,7 @@ export const handler: Handler = async (event) => {
     // Newsletter chunks still use pure semantic — they're prose, not formal legal text
     const [docResult, newsResult] = await Promise.all([
       supabase.rpc('hybrid_match_document_chunks', {
-        query_text: message,
+        query_text: expandedQuery,
         query_embedding: queryEmbedding,
         match_count: 8,
         p_user_id: user.id,
