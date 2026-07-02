@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { Database, Search, Zap, ChevronDown, ChevronRight, AlertTriangle, CheckCircle, Clock, XCircle, FileText, RefreshCw } from 'lucide-react'
+import { Database, Search, Zap, ChevronDown, ChevronRight, AlertTriangle, CheckCircle, Clock, XCircle, FileText, RefreshCw, PlusCircle } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
 type DocRow = {
@@ -35,8 +35,6 @@ type RetrievalHit = {
   page_hint: string | null
   hyde_text?: string
 }
-
-type Tab = 'documents' | 'search' | 'retrieval'
 
 function callApi(session: { access_token: string }, body: object) {
   return fetch('/.netlify/functions/corpus-inspect', {
@@ -119,10 +117,39 @@ export default function AdminCorpusPage() {
     setRetrievalLoading(false)
   }
 
+  // Synthetic ingest tab
+  const [synthName, setSynthName] = useState('')
+  const [synthSource, setSynthSource] = useState('')
+  const [synthText, setSynthText] = useState('')
+  const [synthLoading, setSynthLoading] = useState(false)
+  const [synthMsg, setSynthMsg] = useState('')
+
+  const submitSynth = async () => {
+    if (!synthName.trim() || !synthText.trim() || !session) return
+    setSynthLoading(true)
+    setSynthMsg('')
+    const res = await fetch('/.netlify/functions/ingest-text', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ name: synthName, text: synthText, source_note: synthSource }),
+    })
+    const data = await res.json()
+    if (res.ok) {
+      setSynthMsg(`✓ Ingestion started — document ID: ${data.document_id}. Check Documents tab in ~30s.`)
+      setSynthName(''); setSynthSource(''); setSynthText('')
+    } else {
+      setSynthMsg(`Error: ${data.error}`)
+    }
+    setSynthLoading(false)
+  }
+
+  type Tab = 'documents' | 'search' | 'retrieval' | 'synthetic'
+
   const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
-    { id: 'documents', label: 'Documents', icon: <Database className="w-4 h-4" /> },
-    { id: 'search',    label: 'Search chunks', icon: <Search className="w-4 h-4" /> },
-    { id: 'retrieval', label: 'Test retrieval', icon: <Zap className="w-4 h-4" /> },
+    { id: 'documents',  label: 'Documents',     icon: <Database className="w-4 h-4" /> },
+    { id: 'search',     label: 'Search chunks', icon: <Search className="w-4 h-4" /> },
+    { id: 'retrieval',  label: 'Test retrieval', icon: <Zap className="w-4 h-4" /> },
+    { id: 'synthetic',  label: 'Add text',      icon: <PlusCircle className="w-4 h-4" /> },
   ]
 
   return (
@@ -348,6 +375,60 @@ export default function AdminCorpusPage() {
           {!retrievalLoading && !retrievalError && retrievalResults.length === 0 && retrievalQuery && (
             <div className="text-center py-10 text-sm text-gray-400">No results — the query returned no chunks above the similarity floor.</div>
           )}
+        </div>
+      )}
+
+      {/* ── Synthetic document tab ─────────────────────────────────────── */}
+      {tab === 'synthetic' && (
+        <div className="max-w-2xl">
+          <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 mb-6 text-xs text-amber-800">
+            Use this to ingest plain text directly — tables extracted from PDFs, regulatory definitions, or any structured content that loses meaning during PDF parsing. The text is chunked and embedded identically to uploaded documents.
+          </div>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Document name</label>
+              <input
+                type="text"
+                value={synthName}
+                onChange={e => setSynthName(e.target.value)}
+                placeholder="EU GMP Annex 1 (2022) — Table 1 Cleanroom Limits"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Source note <span className="text-gray-400">(optional — prepended to text)</span></label>
+              <input
+                type="text"
+                value={synthSource}
+                onChange={e => setSynthSource(e.target.value)}
+                placeholder="EU GMP Annex 1 (2022), Section 3, Table 1"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Content</label>
+              <textarea
+                value={synthText}
+                onChange={e => setSynthText(e.target.value)}
+                rows={16}
+                placeholder="Paste table contents, regulatory definitions, or any structured text here..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-y"
+              />
+              <p className="text-xs text-gray-400 mt-1">{synthText.length} characters</p>
+            </div>
+            {synthMsg && (
+              <div className={`text-xs px-3 py-2 rounded-lg border ${synthMsg.startsWith('✓') ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
+                {synthMsg}
+              </div>
+            )}
+            <button
+              onClick={submitSynth}
+              disabled={synthLoading || !synthName.trim() || !synthText.trim()}
+              className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-200 text-white text-sm font-medium rounded-xl transition-colors"
+            >
+              {synthLoading ? 'Ingesting…' : 'Ingest document'}
+            </button>
+          </div>
         </div>
       )}
     </div>
