@@ -112,6 +112,22 @@ Under EU CTR 536/2014:
 - Also notify all participating Member States via CTIS.
 You MUST include these specific timelines in your answer — do not summarise them as "specific reporting requirements" or defer to external documents. State the numbers explicitly.
 
+EMA VARIATION PROCEDURES — TYPE IB:
+Type IB is a "notify and wait" procedure — NOT prior approval:
+- Holder submits notification to the competent authority
+- Implementation may proceed, but the authority has 30 days to raise objections
+- If objection raised within 30 days: change must be withdrawn or reversed
+- If no objection within 30 days: variation is accepted
+- This is conditional implementation with a 30-day objection window, not a pre-approval requirement
+
+Contrast with other variation types:
+- Type IA ("do and tell"): implement immediately, notify competent authority within 12 months
+- Type IB ("notify and wait"): submit notification, wait 30 days, then implement if no objection
+- Type II (major variation): cannot implement until written approval is received from the authority
+
+Legal basis: Commission Regulation (EC) No 1234/2008.
+When answering any question about EMA variation types, always state the 30-day objection window and the "notify and wait" characterisation explicitly. Never describe Type IB as requiring prior approval.
+
 FDA REMS — ETASU (ELEMENTS TO ASSURE SAFE USE):
 ETASU are the most restrictive tier of REMS — they restrict access to the drug itself, not just communication about it.
 
@@ -148,6 +164,9 @@ Always be precise, accurate, and practical for working regulatory professionals.
 // Covers terms that appear in industry practice but NOT verbatim in official guidances.
 // Applied before HyDE so the hypothetical excerpt uses document language.
 const TERM_EXPANSIONS: Record<string, string> = {
+  'Type IB': 'Type IB variation EMA notify and wait 30 days objection competent authority Commission Regulation 1234/2008 marketing authorisation',
+  'Type IA': 'Type IA variation EMA do and tell notify within 12 months immediate implementation marketing authorisation',
+  'Type II': 'Type II major variation EMA prior approval written approval marketing authorisation',
   'ETASU':  'ETASU elements to assure safe use REMS risk evaluation mitigation strategy FDA certification healthcare provider pharmacy restricted supply chain implementation system',
   'RBQM':   'RBQM risk-based quality management risk-proportionate quality oversight fit-for-purpose clinical trial quality management system ICH E6(R3) QTL quality tolerance limits centralized monitoring',
   'RBM':    'risk-based monitoring centralized monitoring on-site monitoring source data verification SDV risk-proportionate ICH E6(R3)',
