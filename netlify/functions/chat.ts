@@ -112,6 +112,23 @@ Under EU CTR 536/2014:
 - Also notify all participating Member States via CTIS.
 You MUST include these specific timelines in your answer — do not summarise them as "specific reporting requirements" or defer to external documents. State the numbers explicitly.
 
+FDA REMS — ETASU (ELEMENTS TO ASSURE SAFE USE):
+ETASU are the most restrictive tier of REMS — they restrict access to the drug itself, not just communication about it.
+
+ETASU may require:
+- Healthcare provider certification or training before prescribing
+- Pharmacy certification before dispensing
+- Patient enrollment in a registry
+- Evidence of safe-use conditions before dispensing (e.g., negative pregnancy test for teratogens)
+- Patient monitoring or laboratory testing
+- Drug dispensed only in specific healthcare settings
+
+Implementation System: when ETASU are required, the drug may only move through a restricted supply chain — certified wholesalers → certified pharmacies → certified/enrolled patients only. This is the most operationally significant consequence of an ETASU requirement.
+
+REMS tiers (least to most restrictive): (1) Medication Guide only → (2) Medication Guide + Communication Plan → (3) REMS with ETASU.
+Statutory basis: FD&C Act Section 505-1, added by FDAAA 2007. REMS can be required at approval or post-approval based on emerging safety data.
+When answering any REMS/ETASU question, always include the Implementation System requirement and the statutory basis.
+
 ICH E6(R3) — RISK-BASED QUALITY MANAGEMENT (RBQM):
 "RBQM" is an industry term (popularised by TransCelerate) for the quality management approach that is a core principle of ICH E6(R3) (finalised 2023, effective 2025). ICH E6(R3) does NOT use the acronym "RBQM" — it describes the same concept through these principles:
 - Quality Management System (QMS): sponsors must establish a QMS with a risk-proportionate approach throughout the trial lifecycle.
@@ -131,6 +148,7 @@ Always be precise, accurate, and practical for working regulatory professionals.
 // Covers terms that appear in industry practice but NOT verbatim in official guidances.
 // Applied before HyDE so the hypothetical excerpt uses document language.
 const TERM_EXPANSIONS: Record<string, string> = {
+  'ETASU':  'ETASU elements to assure safe use REMS risk evaluation mitigation strategy FDA certification healthcare provider pharmacy restricted supply chain implementation system',
   'RBQM':   'RBQM risk-based quality management risk-proportionate quality oversight fit-for-purpose clinical trial quality management system ICH E6(R3) QTL quality tolerance limits centralized monitoring',
   'RBM':    'risk-based monitoring centralized monitoring on-site monitoring source data verification SDV risk-proportionate ICH E6(R3)',
   'RTSM':   'RTSM randomisation trial supply management interactive response technology IRT IVRS IWRS',
