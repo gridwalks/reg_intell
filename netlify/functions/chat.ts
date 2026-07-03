@@ -195,6 +195,10 @@ const TERM_EXPANSIONS: Record<string, string> = {
   'CDISC':  'CDISC CDASH SDTM ADaM clinical data standards FDA submission',
   'CSR':    'CSR clinical study report ICH E3 integrated summary efficacy safety',
   'CIOMS':  'CIOMS council international organisations medical sciences pharmacovigilance adverse reaction reporting',
+  'PUPSIT': 'pre-use post-sterilisation integrity test sterilising grade filter integrity testing aseptic filtration membrane filter Annex 1 sterile',
+  'RABS':   'restricted access barrier system barrier technology aseptic processing isolator Grade A sterile manufacturing Annex 1',
+  'APS':    'aseptic process simulation media fill process simulation sterile manufacturing validation Annex 1',
+  'CCS':    'contamination control strategy holistic written strategy contamination risks facility lifecycle Annex 1 sterile medicinal products',
 }
 
 function expandTerms(query: string): string {
