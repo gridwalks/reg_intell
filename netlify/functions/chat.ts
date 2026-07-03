@@ -15,51 +15,18 @@ const supabase = createClient(getSupabaseUrl(), process.env.SUPABASE_SERVICE_ROL
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! })
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! })
 
-const SYSTEM_PROMPT = `You are RegIntel, an expert pharmaceutical regulatory intelligence assistant with deep expertise in:
+const SYSTEM_PROMPT = `You are RegIntel, a pharmaceutical regulatory intelligence assistant. You answer questions based ONLY on ingested regulatory documents and newsletters provided in <regulatory_context>, supplemented by live Federal Register data in <federal_register_live_data>.
 
-**Regulatory Frameworks**
-- US FDA regulations (21 CFR Parts 210/211/312/314, etc.) and guidances
-- EU EMA guidelines and regulations (EudraLex, Annex 1–21, etc.)
-- ICH guidelines (Q1–Q14, S1–S12, E1–E20, M1–M13 series)
-- PMDA, Health Canada, TGA, ANVISA, and other national/regional authorities
-
-**Quality Systems**
-- GMP, GLP, GCP, GDP, GPvP requirements
-- Quality Management Systems (QMS), CAPA processes
-- Validation and qualification (CSV, process validation, cleaning validation)
-- Deviation management and change control
-
-**Drug Development & Submissions**
-- Common Technical Document (CTD/eCTD) format and content requirements
-- NDA, BLA, ANDA, IND, CTA, MAA submission strategies
-- Product lifecycle management and post-approval changes (CBE, PAS, Type IA/IB/II)
-- Orphan drug designations, expedited programs (Breakthrough, Fast Track, PRIME)
-
-**Pharmacovigilance**
-- ICSRs, PSURs/PBRERs, DSURs, RMPs, REMS
-- Signal detection and benefit-risk assessment
-- Aggregate reporting requirements by region
-
-**Analytical & CMC**
-- Stability requirements (ICH Q1A–Q1F)
-- Specifications and analytical methods
-- Container closure systems, excipients
-
-When answering:
-1. Prioritize information from the provided regulatory documents over general knowledge
-2. When drawing on a provided source, cite it inline using its number, e.g. [1] or [2]. Place the citation directly after the relevant sentence or clause.
-3. Cite specific sections, guidance numbers, or document names when relevant
-4. Clearly distinguish requirements by regulatory region/jurisdiction
-5. Flag differences between regions where applicable
-6. Note when guidance may have been updated and recommend verification against current versions
-7. Structure complex answers with clear headings and bullet points
-8. For critical regulatory decisions, recommend consultation with qualified regulatory affairs professionals
-
-**Confidence and sourcing requirement — do not hallucinate:**
-- Only state something as fact if it is supported by a numbered source [1], [2], etc. in <regulatory_context>, or by the live data in <federal_register_live_data>.
-- If the <regulatory_context> block is missing, empty, or marked low-confidence for this question, you may still draw on general regulatory knowledge, but you MUST open your answer with a clearly visible flag, e.g. "⚠️ No matching source found in your uploaded documents or newsletters — this answer draws on general regulatory knowledge and should be independently verified." Do not skip this flag, and do not present general knowledge as if it came from the user's documents.
-- Never invent a document name, section number, guidance number, or citation that was not explicitly given to you. If you are not certain a specific number/section exists, say so instead of guessing.
-- If a question asks about something highly specific (an exact CFR subsection, a specific recent filing, a specific company/product detail) and you don't have a source for that exact detail, say plainly that you don't have a verified source for that specific point rather than approximating an answer.
+RULES:
+1. Prioritise ICH/EMA/FDA source documents over newsletter summaries for regulatory guidance. When both are present, cite the primary document; reference the newsletter only for commentary or context.
+2. When answering about pharmaceuticals, do NOT cite device, tobacco, or food regulatory content unless explicitly asked.
+3. Always cite the specific guideline/regulation section when providing regulatory requirements. Use inline citations [1], [2], etc. immediately after the relevant sentence, referencing the numbered sources in <regulatory_context>.
+4. Distinguish clearly between:
+   - Requirements (must/shall) vs Recommendations (should/may)
+   - EU regulations vs FDA regulations vs ICH guidelines
+   - Pre-approval vs post-approval obligations
+5. If your source documents do not contain the specific information requested, state: "My current knowledge base does not contain [document/section]. I recommend consulting [authority] directly." Do NOT fabricate section numbers, timelines, thresholds, or numerical limits.
+6. Never state regulatory timelines, thresholds, or numerical limits without citing the source section. If you are unsure of an exact number, say so explicitly rather than approximating.
 
 EU GMP ANNEX 1 (2022) — TABLE 1: CLEANROOM AIRBORNE PARTICULATE LIMITS
 Use these exact values whenever cleanroom grades are discussed. Source: EU GMP Annex 1 (2022), Section 3, Table 1.
@@ -97,7 +64,7 @@ Key principle (Annex 1, Section 4.1): "Monitoring or testing alone does not give
 
 When answering any question about Annex 1 CCS: always describe it as a holistic, documented strategy covering all of the above elements. Do not describe it generically as "a comprehensive approach" — use the specific Annex 1 structure and language above.
 
-NOISE FILTER FOR RETRIEVAL: When sources are provided, only cite a source if it is directly relevant to the specific question asked. If a retrieved chunk is about continuous manufacturing, adventitious agents, or another topic unrelated to the question, do not cite it. Irrelevant citations dilute the answer — omit them entirely rather than force-fitting them.
+SOURCE RELEVANCE: Only cite a retrieved chunk if it is directly relevant to the specific question. If a chunk is about an unrelated topic (continuous manufacturing, adventitious agents, food/tobacco/device regulation, etc.) do not cite it — irrelevant citations dilute the answer. Omit them entirely rather than force-fit them.
 
 CRITICAL PHARMACOVIGILANCE TERMINOLOGY — ALWAYS INCLUDE WHEN DISCUSSING SAEs OR SUSARs:
 Always distinguish between:
@@ -203,6 +170,24 @@ function expandTerms(query: string): string {
   return expanded
 }
 
+// ── Query domain classification ───────────────────────────────────────────────
+// Maps incoming query to a domain tag that is used to scope retrieval to
+// relevant chunks. Returns null when the domain is ambiguous or cross-cutting.
+function classifyDomain(query: string): string | null {
+  const q = query.toLowerCase()
+  // Pharmacovigilance / safety reporting
+  if (/\b(susar|icsr|psur|pbrer|dsur|pharmacovigilan|adverse\s+(event|reaction|effect)|signal detection|benefit.risk|rmp|pv\b|eudravigilance|cioms|safety\s+report)/i.test(q)) return 'pharmacovigilance'
+  // GMP / manufacturing quality
+  if (/\b(gmp|cleanroom|grade [abcd]\b|annex\s*1|annex\s*one|sterile|aseptic|contamination|manufacturing|batch\s+record|validation|cleaning\s+valid)/i.test(q)) return 'GMP'
+  // GCP / clinical trials
+  if (/\b(gcp|clinical\s+trial|investigat|ich\s+e\d|e6\(r[23]\)|protocol|cra\b|monitoring|randomis|irt\b|rtsm|etmf|ctms|rbqm|rbm\b|sdv\b|qtl\b)/i.test(q)) return 'GCP'
+  // CMC / chemistry manufacturing controls
+  if (/\b(cmc\b|specification|stability|analytical|method valid|impurit|excipient|container\s+closure|drug\s+substance|drug\s+product)/i.test(q)) return 'CMC'
+  // Registration / submissions
+  if (/\b(nda\b|bla\b|anda\b|ind\b|maa\b|cta\b|ectd|ctd\b|submission|dossier|type i[ab]\b|type ii\b|variation|orphan|breakthrough|prime\b|fast\s+track)/i.test(q)) return 'registration'
+  return null // cross-cutting — do not filter
+}
+
 // HyDE: generate a short hypothetical regulatory document excerpt to improve retrieval
 // Embedding the expected answer rather than the raw query bridges the gap between
 // conversational language and formal legal/regulatory text in the corpus.
@@ -283,8 +268,10 @@ export const handler: Handler = async (event) => {
       return { statusCode: 400, body: JSON.stringify({ error: 'Missing message' }) }
     }
 
-    // 1. Expand industry acronyms → regulatory language, then generate HyDE + fetch FR in parallel
+    // 1. Expand industry acronyms → regulatory language, classify domain, then generate HyDE + fetch FR in parallel
     const expandedQuery = expandTerms(message)
+    const queryDomain = classifyDomain(message)
+    console.log(`[chat] domain=${queryDomain ?? 'null (cross-cutting)'}`)
     const [hypotheticalExcerpt, fdaContext] = await Promise.all([
       generateHypotheticalExcerpt(expandedQuery),
       fetchFdaContext(),
@@ -306,6 +293,7 @@ export const handler: Handler = async (event) => {
         query_embedding: queryEmbedding,
         match_count: 8,
         p_user_id: user.id,
+        ...(queryDomain ? { p_domain: queryDomain } : {}),
       }),
       supabase.rpc('match_newsletter_chunks', {
         query_embedding: queryEmbedding,
@@ -414,8 +402,13 @@ export const handler: Handler = async (event) => {
         numberedContext +
         `\n</regulatory_context>`
     } else {
+      const domainHint = queryDomain
+        ? ` (searched domain: ${queryDomain})`
+        : ''
       contextBlock =
-        '<confidence_note>No matching content was found in the user\'s uploaded documents or newsletters for this question. You MUST include the no-source-found warning at the start of your answer, unless the Federal Register live data below fully answers the question.</confidence_note>'
+        `<confidence_note>No matching content was found in the user's uploaded regulatory documents or newsletters for this question${domainHint}. ` +
+        `You MUST open your answer with this exact sentence: "I do not have sufficient source material to answer this reliably. Please consult the relevant regulatory authority's official guidance or publications directly." ` +
+        `Then you may offer general regulatory knowledge clearly labelled as such, but do NOT present it as if sourced from the user's documents.</confidence_note>`
     }
 
     const userContent = [contextBlock, fdaContext, `Question: ${message}`].filter(Boolean).join('\n\n')

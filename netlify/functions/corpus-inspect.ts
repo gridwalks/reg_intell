@@ -54,7 +54,7 @@ export const handler: Handler = async (event) => {
       if (!document_id) return { statusCode: 400, body: 'Missing document_id' }
       const { data, error } = await supabase
         .from('document_chunks')
-        .select('id, chunk_index, page_hint, content, created_at')
+        .select('id, chunk_index, page_hint, content, created_at, source_type, issuing_body, domain, geography, product_type')
         .eq('document_id', document_id)
         .order('chunk_index', { ascending: true })
       if (error) throw new Error(error.message ?? JSON.stringify(error))
@@ -109,11 +109,15 @@ export const handler: Handler = async (event) => {
         input: hydeText,
       })
       const embedding = embedData[0].embedding
+      const { domain: filterDomain, issuing_body: filterIssuing, geography: filterGeo } = body
       const { data, error } = await supabase.rpc('hybrid_match_document_chunks', {
         query_text: query,
         query_embedding: embedding,
         match_count,
         p_user_id: null,
+        ...(filterDomain   ? { p_domain: filterDomain }          : {}),
+        ...(filterIssuing  ? { p_issuing_body: filterIssuing }   : {}),
+        ...(filterGeo      ? { p_geography: filterGeo }          : {}),
       })
       if (error) throw new Error(error.message ?? JSON.stringify(error))
 

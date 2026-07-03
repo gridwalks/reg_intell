@@ -21,6 +21,11 @@ type Chunk = {
   content: string
   document_id?: string
   documents?: { name: string; status: string }
+  source_type?: string
+  issuing_body?: string
+  domain?: string[]
+  geography?: string[]
+  product_type?: string[]
 }
 
 type RetrievalHit = {
@@ -34,6 +39,10 @@ type RetrievalHit = {
   rank: number
   page_hint: string | null
   hyde_text?: string
+  source_type?: string
+  issuing_body?: string
+  domain?: string[]
+  geography?: string[]
 }
 
 function callApi(session: { access_token: string }, body: object) {
@@ -63,6 +72,8 @@ export default function AdminCorpusPage() {
 
   // Retrieval tab
   const [retrievalQuery, setRetrievalQuery] = useState('')
+  const [retrievalDomain, setRetrievalDomain] = useState('')
+  const [retrievalIssuing, setRetrievalIssuing] = useState('')
   const [retrievalResults, setRetrievalResults] = useState<RetrievalHit[]>([])
   const [retrievalLoading, setRetrievalLoading] = useState(false)
   const [retrievalError, setRetrievalError] = useState('')
@@ -108,7 +119,13 @@ export default function AdminCorpusPage() {
     setRetrievalLoading(true)
     setRetrievalError('')
     setRetrievalResults([])
-    const data = await callApi(session, { action: 'test_retrieval', query: retrievalQuery, match_count: 10 })
+    const data = await callApi(session, {
+      action: 'test_retrieval',
+      query: retrievalQuery,
+      match_count: 10,
+      ...(retrievalDomain  ? { domain: retrievalDomain }        : {}),
+      ...(retrievalIssuing ? { issuing_body: retrievalIssuing } : {}),
+    })
     if (Array.isArray(data)) {
       setRetrievalResults(data)
     } else {
@@ -313,22 +330,62 @@ export default function AdminCorpusPage() {
           <div className="bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-3 mb-5 text-xs text-indigo-700">
             Embeds your query with <strong>text-embedding-3-small</strong> and runs cosine similarity against all indexed chunks. Results show what the AI would actually retrieve for this query.
           </div>
-          <div className="flex gap-2 mb-5">
-            <input
-              type="text"
-              value={retrievalQuery}
-              onChange={e => setRetrievalQuery(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && runRetrieval()}
-              placeholder='Try: "difference between SAE and SUSAR" or "SUSAR reporting timelines EU"'
-              className="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-            />
-            <button
-              onClick={runRetrieval}
-              disabled={retrievalLoading || !retrievalQuery.trim()}
-              className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-200 text-white text-sm font-medium rounded-xl transition-colors"
-            >
-              {retrievalLoading ? 'Running…' : 'Run'}
-            </button>
+          <div className="space-y-2 mb-5">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={retrievalQuery}
+                onChange={e => setRetrievalQuery(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && runRetrieval()}
+                placeholder='Try: "difference between SAE and SUSAR" or "SUSAR reporting timelines EU"'
+                className="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              />
+              <button
+                onClick={runRetrieval}
+                disabled={retrievalLoading || !retrievalQuery.trim()}
+                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-200 text-white text-sm font-medium rounded-xl transition-colors"
+              >
+                {retrievalLoading ? 'Running…' : 'Run'}
+              </button>
+            </div>
+            <div className="flex gap-2">
+              <select
+                value={retrievalDomain}
+                onChange={e => setRetrievalDomain(e.target.value)}
+                className="px-3 py-1.5 border border-gray-300 rounded-lg text-xs text-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-400 bg-white"
+              >
+                <option value="">All domains</option>
+                <option value="GMP">GMP</option>
+                <option value="GCP">GCP</option>
+                <option value="pharmacovigilance">Pharmacovigilance</option>
+                <option value="CMC">CMC</option>
+                <option value="registration">Registration</option>
+                <option value="clinical">Clinical</option>
+                <option value="general">General</option>
+              </select>
+              <select
+                value={retrievalIssuing}
+                onChange={e => setRetrievalIssuing(e.target.value)}
+                className="px-3 py-1.5 border border-gray-300 rounded-lg text-xs text-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-400 bg-white"
+              >
+                <option value="">All issuers</option>
+                <option value="ICH">ICH</option>
+                <option value="EMA">EMA</option>
+                <option value="FDA">FDA</option>
+                <option value="WHO">WHO</option>
+                <option value="PIC/S">PIC/S</option>
+                <option value="EC">EC</option>
+                <option value="MHRA">MHRA</option>
+              </select>
+              {(retrievalDomain || retrievalIssuing) && (
+                <button
+                  onClick={() => { setRetrievalDomain(''); setRetrievalIssuing('') }}
+                  className="text-xs text-gray-400 hover:text-gray-600 px-2"
+                >
+                  Clear filters
+                </button>
+              )}
+            </div>
           </div>
 
           {retrievalResults.length > 0 && (
@@ -345,12 +402,18 @@ export default function AdminCorpusPage() {
               {retrievalResults.map((hit, i) => (
                 <div key={hit.id} className="border border-gray-200 rounded-xl overflow-hidden">
                   <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b border-gray-100">
-                    <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0 flex-wrap">
                       <span className="text-xs font-bold text-gray-400 w-5 text-right shrink-0">#{i + 1}</span>
                       <FileText className="w-3.5 h-3.5 text-gray-400 shrink-0" />
                       <span className="text-xs font-medium text-gray-700 truncate">{hit.document_name}</span>
                       <span className="text-xs text-gray-400 shrink-0">· chunk {hit.chunk_index}</span>
                       {hit.page_hint && <span className="text-xs text-gray-400 shrink-0">· {hit.page_hint}</span>}
+                      {hit.issuing_body && hit.issuing_body !== 'unknown' && (
+                        <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded shrink-0">{hit.issuing_body}</span>
+                      )}
+                      {hit.domain?.map(d => (
+                        <span key={d} className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded shrink-0">{d}</span>
+                      ))}
                     </div>
                     <SimilarityBadge score={hit.similarity} />
                   </div>
@@ -480,10 +543,22 @@ function ChunkCard({ chunk, label, highlight }: { chunk: Chunk; label?: string; 
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-      <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 border-b border-gray-100">
+      <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 border-b border-gray-100 flex-wrap">
         <span className="text-xs text-gray-400 font-mono">#{chunk.chunk_index}</span>
         {chunk.page_hint && <span className="text-xs text-gray-400">{chunk.page_hint}</span>}
         {label && <span className="text-xs font-medium text-indigo-600 truncate">{label}</span>}
+        {chunk.issuing_body && chunk.issuing_body !== 'unknown' && (
+          <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">{chunk.issuing_body}</span>
+        )}
+        {chunk.domain?.map(d => (
+          <span key={d} className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">{d}</span>
+        ))}
+        {chunk.geography?.map(g => (
+          <span key={g} className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{g}</span>
+        ))}
+        {chunk.source_type && chunk.source_type !== 'guideline' && (
+          <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">{chunk.source_type}</span>
+        )}
         <span className="ml-auto text-xs text-gray-300">{chunk.content.length} chars</span>
       </div>
       <div className="px-3 py-2">

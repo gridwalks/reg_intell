@@ -74,12 +74,28 @@ type UploadJob = {
   progress: number
 }
 
+const ISSUING_BODIES = [
+  { value: 'FDA',           label: 'FDA — US Food & Drug Administration' },
+  { value: 'EMA',           label: 'EMA — European Medicines Agency' },
+  { value: 'ICH',           label: 'ICH — Int\'l Council for Harmonisation' },
+  { value: 'MHRA',          label: 'MHRA — UK Medicines & Healthcare' },
+  { value: 'PIC/S',         label: 'PIC/S — Pharmaceutical Inspection Co-operation' },
+  { value: 'WHO',           label: 'WHO — World Health Organization' },
+  { value: 'EC',            label: 'EC — European Commission' },
+  { value: 'Health Canada', label: 'Health Canada' },
+  { value: 'TGA',           label: 'TGA — Therapeutic Goods Administration (AU)' },
+  { value: 'ANVISA',        label: 'ANVISA — Brazil' },
+  { value: 'PMDA',          label: 'PMDA — Japan' },
+  { value: 'Other',         label: 'Other' },
+]
+
 type DocModal = {
   doc: Document
   name: string
   title: string
   document_date: string
   source_url: string
+  issuing_body: string
   saving: boolean
   viewUrl: string | null
   loadingUrl: boolean
@@ -120,6 +136,7 @@ export default function DocumentsPage() {
       title: doc.title ?? '',
       document_date: doc.document_date ?? '',
       source_url: doc.source_url ?? '',
+      issuing_body: doc.issuing_body ?? '',
       saving: false,
       viewUrl: null,
       loadingUrl: false,
@@ -136,6 +153,7 @@ export default function DocumentsPage() {
         title: modal.title.trim() || null,
         document_date: modal.document_date || null,
         source_url: modal.source_url.trim() || null,
+        issuing_body: modal.issuing_body || null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', modal.doc.id)
@@ -372,6 +390,11 @@ export default function DocumentsPage() {
                     {doc.title && (
                       <span className="text-xs text-gray-400 truncate max-w-xs">{doc.name}</span>
                     )}
+                    {doc.issuing_body && (
+                      <span className="text-xs font-medium bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded">
+                        {doc.issuing_body}
+                      </span>
+                    )}
                     {doc.document_date && (
                       <span className="text-xs text-indigo-600">
                         {new Date(doc.document_date + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
@@ -463,6 +486,19 @@ export default function DocumentsPage() {
                   onChange={e => setModal(m => m ? { ...m, document_date: e.target.value } : m)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Regulatory Agency</label>
+                <select
+                  value={modal.issuing_body}
+                  onChange={e => setModal(m => m ? { ...m, issuing_body: e.target.value } : m)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                >
+                  <option value="">— Select agency —</option>
+                  {ISSUING_BODIES.map(b => (
+                    <option key={b.value} value={b.value}>{b.label}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">Source URL</label>

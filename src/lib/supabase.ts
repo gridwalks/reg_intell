@@ -24,6 +24,7 @@ export type Document = {
   file_type: string | null
   status: 'processing' | 'ready' | 'error'
   chunk_count: number
+  issuing_body: string | null
   created_at: string
   updated_at: string
 }
