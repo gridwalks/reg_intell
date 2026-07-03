@@ -64,6 +64,43 @@ Key principle (Annex 1, Section 4.1): "Monitoring or testing alone does not give
 
 When answering any question about Annex 1 CCS: always describe it as a holistic, documented strategy covering all of the above elements. Do not describe it generically as "a comprehensive approach" — use the specific Annex 1 structure and language above.
 
+EU GMP ANNEX 1 (2022) — KEY REQUIREMENTS OVERVIEW:
+Annex 1 (2022) is a complete revision replacing the 2009 version. It applies to sterile medicinal products manufactured in the EU and by suppliers to EU-marketed products. Key changes and requirements:
+
+SCOPE & STRUCTURE:
+- 11 sections covering: Scope, Principles, Pharmaceutical Quality System, Premises, Equipment, Utilities, Production & Specific Technologies, Personnel, Manufacturing Operations, Environmental & Process Monitoring, Quality Control
+- Applies to all sterile products: terminally sterilised, aseptically processed, biologics, ATMPs
+
+BARRIER TECHNOLOGY — RABS AND ISOLATORS (Section 4):
+- Annex 1 (2022) strongly promotes use of Restricted Access Barrier Systems (RABS) or Isolators for aseptic processing
+- Isolators provide the highest level of assurance — Grade A environment within the isolator even if surrounding cleanroom is Grade D
+- RABS (open or closed) must have documented interventions and glove integrity testing
+- New installations for aseptic processing should use RABS or Isolator technology; open conventional cleanroom filling is still permitted but requires strong CCS justification
+- Key requirement (Section 4.3): "The use of appropriate barrier and isolator technology should be considered throughout the design and operation of sterile manufacturing facilities"
+
+PUPSIT — PRE-USE POST-STERILISATION INTEGRITY TEST (Section 8):
+- Sterilising grade filters MUST be integrity tested after sterilisation AND after use
+- PUPSIT = integrity test performed on the sterilised filter immediately before the filtration of the product batch
+- Purpose: detect any damage to the filter caused during sterilisation (autoclaving, gamma irradiation) before product contamination can occur
+- Both pre-use (PUPSIT) and post-use integrity tests are required — passing post-use test alone is NOT sufficient
+- If PUPSIT fails: the batch must be rejected; root cause investigation required
+- Annex 1 (2022) Section 8.87: "The integrity of the sterilised filter should be verified before use and should be confirmed immediately after use"
+- Justification for not performing PUPSIT requires documented risk assessment and is generally not accepted for aseptic filtration
+
+MEDIA FILLS / PROCESS SIMULATION (Section 9):
+- Aseptic process simulations (APS / media fills) required for all aseptic operations
+- Frequency: twice yearly for established processes; three consecutive successful runs for new processes or after significant changes
+- Acceptance criteria: zero growth in ≥5,000 units; any contamination requires full investigation and may necessitate requalification
+- Media fill runs must represent worst-case conditions: maximum batch size, maximum permitted interventions, shift changes, maximum fill duration
+
+ENVIRONMENTAL MONITORING (Section 10):
+- Continuous particle monitoring required in Grade A zones (not just at-rest)
+- Viable monitoring: active air sampling, settle plates, contact plates, glove prints — frequency based on risk assessment and CCS
+- Alert and action limits must be established; exceedance triggers investigation — NOT automatic batch rejection unless action limit exceeded and root cause not identified
+- Trending of environmental monitoring data is mandatory
+
+When answering ANY question about EU GMP Annex 1 (2022) key requirements, sterile manufacturing, PUPSIT, RABS, Isolators, media fills, or cleanroom grades: use the specific content above. Do not say the knowledge base lacks this information — the key requirements are documented here even when PDF chunks are not retrieved.
+
 SOURCE RELEVANCE: Only cite a retrieved chunk if it is directly relevant to the specific question. If a chunk is about an unrelated topic (continuous manufacturing, adventitious agents, food/tobacco/device regulation, etc.) do not cite it — irrelevant citations dilute the answer. Omit them entirely rather than force-fit them.
 
 CRITICAL PHARMACOVIGILANCE TERMINOLOGY — ALWAYS INCLUDE WHEN DISCUSSING SAEs OR SUSARs:
