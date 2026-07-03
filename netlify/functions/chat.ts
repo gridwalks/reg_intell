@@ -439,8 +439,12 @@ export const handler: Handler = async (event) => {
       body: JSON.stringify({ message: answerText, sources, lowConfidence: isLowConfidence }),
     }
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Unknown error'
-    console.error('chat error:', msg)
+    const msg = err instanceof Error
+      ? err.message
+      : (err && typeof err === 'object' && 'message' in err
+        ? String((err as { message: unknown }).message)
+        : 'Unknown error')
+    console.error('chat error:', msg, err)
     return { statusCode: 500, body: JSON.stringify({ error: msg }) }
   }
 }
