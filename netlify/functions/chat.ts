@@ -27,12 +27,12 @@ function getCohere(): CohereClient {
 type ModelProvider = 'groq' | 'cohere'
 type ModelId =
   | 'llama-3.3-70b-versatile'  // Groq
-  | 'command-a-plus'           // Cohere Command A+
+  | 'command-a-plus-05-2026'   // Cohere Command A+
   | 'command-r7b-12-2024'      // Cohere Command R7B
 
 const MODEL_CONFIGS: Record<ModelId, { provider: ModelProvider; label: string }> = {
   'llama-3.3-70b-versatile': { provider: 'groq',   label: 'Llama 3.3 70B (Groq)' },
-  'command-a-plus':          { provider: 'cohere', label: 'Command A+ (Cohere)' },
+  'command-a-plus-05-2026':  { provider: 'cohere', label: 'Command A+ (Cohere)' },
   'command-r7b-12-2024':     { provider: 'cohere', label: 'Command R7B (Cohere)' },
 }
 const DEFAULT_MODEL: ModelId = 'llama-3.3-70b-versatile'

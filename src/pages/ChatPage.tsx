@@ -38,7 +38,7 @@ const STARTER_PROMPTS = [
 
 const MODELS = [
   { id: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B', provider: 'Groq' },
-  { id: 'command-a-plus',          label: 'Command A+',    provider: 'Cohere' },
+  { id: 'command-a-plus-05-2026',  label: 'Command A+',    provider: 'Cohere' },
   { id: 'command-r7b-12-2024',     label: 'Command R7B',   provider: 'Cohere' },
 ]
 
