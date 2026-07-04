@@ -316,8 +316,13 @@ async function generateAnswer(
       ],
       temperature: 0.3,
     })
-    const block = response.message?.content?.[0]
-    return (block && 'text' in block ? block.text : '') ?? ''
+    console.log('[cohere] response keys:', Object.keys(response ?? {}))
+    // v2 response: response.message.content is an array of content blocks
+    const content = (response as Record<string, unknown>)?.message as Record<string, unknown> | undefined
+    const blocks = content?.content as Array<Record<string, unknown>> | undefined
+    const text = blocks?.[0]?.text as string | undefined
+    if (!text) console.log('[cohere] unexpected response shape:', JSON.stringify(response).slice(0, 500))
+    return text ?? ''
   }
 
   throw new Error(`Unknown provider for model: ${model}`)

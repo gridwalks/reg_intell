@@ -113,12 +113,15 @@ export default function ChatPage() {
         }),
       })
 
-      if (!res.ok) {
-        const { error } = await res.json()
-        throw new Error(error || 'Query failed')
+      const rawText = await res.text()
+      let parsed: Record<string, unknown>
+      try {
+        parsed = JSON.parse(rawText)
+      } catch {
+        throw new Error(`Server returned non-JSON response (status ${res.status}). Check Netlify function logs.`)
       }
-
-      const { message, sources, lowConfidence } = await res.json()
+      if (!res.ok) throw new Error((parsed.error as string) || 'Query failed')
+      const { message, sources, lowConfidence } = parsed as { message: string; sources: Source[]; lowConfidence: boolean }
       setMessages(prev => [...prev, { role: 'assistant', content: message, sources, lowConfidence }])
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Something went wrong.')
