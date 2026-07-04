@@ -2,6 +2,7 @@ import type { Handler } from '@netlify/functions'
 import { createClient } from '@supabase/supabase-js'
 import OpenAI from 'openai'
 import Groq from 'groq-sdk'
+import { CohereClient } from 'cohere-ai'
 
 // Derive Supabase REST URL from the DATABASE_URL provided by Netlify's Supabase integration
 function getSupabaseUrl(): string {
@@ -14,6 +15,20 @@ function getSupabaseUrl(): string {
 const supabase = createClient(getSupabaseUrl(), process.env.SUPABASE_SERVICE_ROLE_KEY!)
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! })
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! })
+const cohere = new CohereClient({ token: process.env.COHERE_API_KEY! })
+
+type ModelProvider = 'groq' | 'cohere'
+type ModelId =
+  | 'llama-3.3-70b-versatile'        // Groq
+  | 'command-a-plus-04-2025'         // Cohere Command A+
+  | 'command-r7b-12-2024'            // Cohere Command R7B
+
+const MODEL_CONFIGS: Record<ModelId, { provider: ModelProvider; label: string }> = {
+  'llama-3.3-70b-versatile':  { provider: 'groq',   label: 'Llama 3.3 70B (Groq)' },
+  'command-a-plus-04-2025':   { provider: 'cohere', label: 'Command A+ (Cohere)' },
+  'command-r7b-12-2024':      { provider: 'cohere', label: 'Command R7B (Cohere)' },
+}
+const DEFAULT_MODEL: ModelId = 'llama-3.3-70b-versatile'
 
 const SYSTEM_PROMPT = `You are RegIntel, a pharmaceutical regulatory intelligence assistant. You answer questions based ONLY on ingested regulatory documents and newsletters provided in <regulatory_context>, supplemented by live Federal Register data in <federal_register_live_data>.
 
@@ -255,6 +270,50 @@ async function generateHypotheticalExcerpt(query: string): Promise<string> {
   }
 }
 
+// ── Model routing ─────────────────────────────────────────────────────────────
+type ChatMsg = { role: 'user' | 'assistant'; content: string }
+
+async function generateAnswer(
+  model: ModelId,
+  systemPrompt: string,
+  history: ChatMsg[],
+  userContent: string,
+): Promise<string> {
+  const config = MODEL_CONFIGS[model]
+
+  if (config.provider === 'groq') {
+    const completion = await groq.chat.completions.create({
+      model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        ...history,
+        { role: 'user', content: userContent },
+      ],
+      max_tokens: 4096,
+      temperature: 0.3,
+    })
+    return completion.choices[0]?.message?.content ?? ''
+  }
+
+  if (config.provider === 'cohere') {
+    // Cohere uses a preamble (system prompt) + chat history format
+    const cohereHistory = history.map(m => ({
+      role: m.role === 'user' ? ('USER' as const) : ('CHATBOT' as const),
+      message: m.content,
+    }))
+    const response = await cohere.chat({
+      model,
+      preamble: systemPrompt,
+      chatHistory: cohereHistory,
+      message: userContent,
+      temperature: 0.3,
+    })
+    return response.text ?? ''
+  }
+
+  throw new Error(`Unknown provider for model: ${model}`)
+}
+
 async function fetchFdaContext(): Promise<string> {
   try {
     const base = 'https://www.federalregister.gov/api/v1'
@@ -305,7 +364,9 @@ export const handler: Handler = async (event) => {
   if (authError || !user) return { statusCode: 401, body: 'Unauthorized' }
 
   try {
-    const { message, history = [] } = JSON.parse(event.body!)
+    const { message, history = [], model: requestedModel } = JSON.parse(event.body!)
+    const model: ModelId = (requestedModel in MODEL_CONFIGS) ? requestedModel as ModelId : DEFAULT_MODEL
+    console.log(`[chat] model=${model} provider=${MODEL_CONFIGS[model].provider}`)
 
     if (!message?.trim()) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Missing message' }) }
@@ -458,30 +519,24 @@ export const handler: Handler = async (event) => {
 
     const userContent = [contextBlock, fdaContext, `Question: ${message}`].filter(Boolean).join('\n\n')
 
-    // 4. Build message history for Groq
-    type ChatMsg = { role: 'user' | 'assistant'; content: string }
-    const messages: ChatMsg[] = [
-      ...(history as ChatMsg[]),
-      { role: 'user', content: userContent },
-    ]
-
-    // 5. Call Groq
-    const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        ...messages,
-      ],
-      max_tokens: 4096,
-      temperature: 0.3,
-    })
-
-    const answerText = completion.choices[0]?.message?.content ?? ''
+    // 4. Generate answer via selected model/provider
+    const answerText = await generateAnswer(
+      model,
+      SYSTEM_PROMPT,
+      history as ChatMsg[],
+      userContent,
+    )
 
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: answerText, sources, lowConfidence: isLowConfidence }),
+      body: JSON.stringify({
+        message: answerText,
+        sources,
+        lowConfidence: isLowConfidence,
+        model,
+        modelLabel: MODEL_CONFIGS[model].label,
+      }),
     }
   } catch (err: unknown) {
     const msg = err instanceof Error
