@@ -15,7 +15,14 @@ function getSupabaseUrl(): string {
 const supabase = createClient(getSupabaseUrl(), process.env.SUPABASE_SERVICE_ROLE_KEY!)
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! })
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! })
-const cohere = new CohereClient({ token: process.env.COHERE_API_KEY! })
+
+// Lazy — only instantiated when a Cohere model is actually selected
+let _cohere: CohereClient | null = null
+function getCohere(): CohereClient {
+  if (!process.env.COHERE_API_KEY) throw new Error('COHERE_API_KEY is not set in environment variables')
+  if (!_cohere) _cohere = new CohereClient({ token: process.env.COHERE_API_KEY })
+  return _cohere
+}
 
 type ModelProvider = 'groq' | 'cohere'
 type ModelId =
@@ -301,7 +308,7 @@ async function generateAnswer(
       role: m.role === 'user' ? ('USER' as const) : ('CHATBOT' as const),
       message: m.content,
     }))
-    const response = await cohere.chat({
+    const response = await getCohere().chat({
       model,
       preamble: systemPrompt,
       chatHistory: cohereHistory,
