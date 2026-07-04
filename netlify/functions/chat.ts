@@ -347,7 +347,9 @@ export const handler: Handler = async (event) => {
     if (docResult.error) throw docResult.error
 
     const chunks = docResult.data ?? []
-    const newsletterChunks = newsResult.data ?? []
+    // Only use newsletter chunks when no primary document chunks matched —
+    // prevents newsletter summaries from competing with authoritative source docs.
+    const newsletterChunks = chunks.length === 0 ? (newsResult.data ?? []) : []
 
     // 3. Generate signed URLs for unique documents so the UI can link to them
     type Source = {
