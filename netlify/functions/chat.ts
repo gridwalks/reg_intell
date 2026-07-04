@@ -303,19 +303,21 @@ async function generateAnswer(
   }
 
   if (config.provider === 'cohere') {
-    // Cohere uses a preamble (system prompt) + chat history format
-    const cohereHistory = history.map(m => ({
-      role: m.role === 'user' ? ('USER' as const) : ('CHATBOT' as const),
-      message: m.content,
-    }))
-    const response = await getCohere().chat({
+    // Command A+ requires v2 API — messages array with system role
+    const response = await getCohere().v2.chat({
       model,
-      preamble: systemPrompt,
-      chatHistory: cohereHistory,
-      message: userContent,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        ...history.map(m => ({
+          role: m.role === 'user' ? ('user' as const) : ('assistant' as const),
+          content: m.content,
+        })),
+        { role: 'user', content: userContent },
+      ],
       temperature: 0.3,
     })
-    return response.text ?? ''
+    const block = response.message?.content?.[0]
+    return (block && 'text' in block ? block.text : '') ?? ''
   }
 
   throw new Error(`Unknown provider for model: ${model}`)
