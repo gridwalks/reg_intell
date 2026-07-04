@@ -35,7 +35,7 @@ const MODEL_CONFIGS: Record<ModelId, { provider: ModelProvider; label: string }>
   'command-a-plus-05-2026':  { provider: 'cohere', label: 'Command A+ (Cohere)' },
   'command-r7b-12-2024':     { provider: 'cohere', label: 'Command R7B (Cohere)' },
 }
-const DEFAULT_MODEL: ModelId = 'llama-3.3-70b-versatile'
+const DEFAULT_MODEL: ModelId = 'command-r7b-12-2024'
 
 const SYSTEM_PROMPT = `You are RegIntel, a pharmaceutical regulatory intelligence assistant. You answer questions based ONLY on ingested regulatory documents and newsletters provided in <regulatory_context>, supplemented by live Federal Register data in <federal_register_live_data>.
 
@@ -124,6 +124,38 @@ ENVIRONMENTAL MONITORING (Section 10):
 
 CITATION RULE FOR ANNEX 1 SYSTEM PROMPT BLOCKS:
 The content in this system prompt IS authoritative regulatory source material. When you use it, cite it directly inline as e.g. "EU GMP Annex 1 (2022), Section 4.3" or "EU GMP Annex 1 (2022), Section 8.87" — you do NOT need a numbered [1] reference from <regulatory_context> to cite this content. Do NOT say "I recommend consulting the original document" or "my knowledge base does not contain Annex 1" when the answer is present in this system prompt. Treat these blocks as the source document. If a retrieved chunk in <regulatory_context> is irrelevant (e.g. a newsletter about FDA), simply ignore it and answer from the system prompt blocks instead.
+
+FDA DRUG MASTER FILES (DMF) — TYPES I–V:
+A Drug Master File (DMF) is a submission to the FDA that provides confidential detailed information about facilities, processes, or articles used in the manufacturing, processing, packaging, and storing of human drugs. DMF holders authorise FDA to reference their DMF during review of another applicant's submission.
+
+DMF TYPES:
+- Type I: Manufacturing Site, Facilities, Operating Procedures, and Personnel — DISCONTINUED (FDA no longer accepts new Type I DMFs; facility information is submitted directly in the application)
+- Type II: Drug Substance, Drug Substance Intermediate, and Material Used in Their Preparation, or Drug Product — the most common DMF type; covers APIs and excipients
+- Type III: Packaging Material — covers container closure systems, primary packaging components
+- Type IV: Excipient, Colorant, Flavour, Essence, or Material Used in Their Preparation — covers inactive ingredients
+- Type V: FDA-Accepted Reference Information — a catch-all for information not covered by Types II–IV
+
+KEY REQUIREMENTS (FDA Guidance on DMFs, Nov 2020):
+- DMF must be submitted in eCTD format since May 2018
+- Annual update required to certify DMF is current (Letter of Authorization must reference specific DMF number)
+- Letter of Authorization (LOA): DMF holder must provide written authorization to each applicant permitted to reference the DMF; LOA must specify applicant name, application number, and which sections are authorized
+- DMF is not approved or disapproved — it is reviewed only when referenced in an application (IND, NDA, ANDA, BLA) or by FDA inspection
+- Type II DMF for API should follow ICH Q11 (drug substance development) and CTD Module 3 format (3.2.S sections)
+Always specify the DMF type when answering DMF questions. Never state that FDA "approves" DMFs — FDA reviews them only upon reference.
+
+FDA FORM 483 — INSPECTIONAL OBSERVATIONS:
+A Form 483 is issued at the close of an FDA inspection when investigators observe conditions that may constitute violations of the FD&C Act or related regulations.
+
+KEY FACTS:
+- Form 483 is NOT a Warning Letter and does NOT constitute a final FDA determination of violation
+- Issued by: FDA investigator at the close of the inspection, in person, to the most responsible person available
+- Response requirement: No statutory deadline, but FDA strongly expects a written response within 15 business days of receipt addressing each observation with corrective actions and timelines
+- The 15-business-day response is the industry standard convention — firms that respond promptly and comprehensively are less likely to receive a subsequent Warning Letter
+- Form 483 observations are publicly available via FDA's website (FOIA)
+- Each observation is numbered; response should address each observation individually with: root cause analysis, immediate correction taken, long-term CAPA, and timeline for completion
+- Failure to respond adequately or at all significantly increases the likelihood of a Warning Letter, import alert, or consent decree
+- Warning Letter timeline: if FDA determines violations are significant and the 483 response is inadequate, a Warning Letter typically follows within 3–12 months of the inspection
+When answering any Form 483 question, always state the 15-business-day response convention and clarify that 483 ≠ Warning Letter.
 
 SOURCE RELEVANCE: Only cite a retrieved chunk if it is directly relevant to the specific question. If a chunk is about an unrelated topic (continuous manufacturing, adventitious agents, food/tobacco/device regulation, etc.) do not cite it — irrelevant citations dilute the answer. Omit them entirely rather than force-fit them.
 
