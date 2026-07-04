@@ -316,13 +316,21 @@ async function generateAnswer(
       ],
       temperature: 0.3,
     })
-    console.log('[cohere] response keys:', Object.keys(response ?? {}))
-    // v2 response: response.message.content is an array of content blocks
-    const content = (response as Record<string, unknown>)?.message as Record<string, unknown> | undefined
-    const blocks = content?.content as Array<Record<string, unknown>> | undefined
-    const text = blocks?.[0]?.text as string | undefined
-    if (!text) console.log('[cohere] unexpected response shape:', JSON.stringify(response).slice(0, 500))
-    return text ?? ''
+    const r = response as Record<string, unknown>
+    console.log('[cohere] raw response:', JSON.stringify(r).slice(0, 800))
+
+    // Try all known v2 response shapes
+    const msg = r?.message as Record<string, unknown> | undefined
+    const blocks = msg?.content as Array<Record<string, unknown>> | undefined
+    const fromBlocks = blocks?.find(b => b.type === 'text')?.text as string | undefined
+    // Fallback: some models return text directly on the response
+    const fromDirect = r?.text as string | undefined
+    // Fallback: generations array (legacy shape occasionally returned)
+    const fromGenerations = (r?.generations as Array<Record<string, unknown>>)?.[0]?.text as string | undefined
+
+    const text = fromBlocks ?? fromDirect ?? fromGenerations ?? ''
+    if (!text) console.error('[cohere] could not extract text. Full response:', JSON.stringify(r))
+    return text
   }
 
   throw new Error(`Unknown provider for model: ${model}`)
