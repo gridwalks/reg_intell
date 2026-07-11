@@ -134,6 +134,7 @@ function inferMetadata(docName: string): ChunkMetadata {
   if (/CLINICAL|PHASE [123]|TRIAL/.test(n)) {
     if (!domain.includes('GCP')) domain.push('clinical')
   }
+  if (/\bGDP\b|GOOD\s*DISTRIBUTION|WHOLESALE\s*DISTRIBUT|DISTRIBUTION\s*PRACTICE|DISTRIBUTION\s*AUTHORIS/.test(n)) domain.push('distribution')
   if (domain.length === 0) domain.push('general')
 
   // source_type

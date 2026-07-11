@@ -294,6 +294,8 @@ function classifyDomain(query: string): string | null {
   if (/\b(cmc\b|specification|stability|analytical|method valid|impurit|excipient|container\s+closure|drug\s+substance|drug\s+product)/i.test(q)) return 'CMC'
   // Registration / submissions
   if (/\b(nda\b|bla\b|anda\b|ind\b|maa\b|cta\b|ectd|ctd\b|submission|dossier|type i[ab]\b|type ii\b|variation|orphan|breakthrough|prime\b|fast\s+track)/i.test(q)) return 'registration'
+  // GDP / wholesale distribution & supply chain
+  if (/\b(gdp\b|good\s+distribution\s+practice|wholesale\s+distribut|distribution\s+authoris|parallel\s+distribut|drug\s+wholesal|cold\s+chain|temperature[- ]control(led)?\s+(storage|transport|distribut))/i.test(q)) return 'distribution'
   return null // cross-cutting — do not filter
 }
 
