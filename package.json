@@ -23,7 +23,8 @@
     "react-markdown": "^9.0.1",
     "react-router-dom": "^6.28.0",
     "remark-gfm": "^4.0.1",
-    "rss-parser": "^3.13.0"
+    "rss-parser": "^3.13.0",
+    "stripe": "^22.3.1"
   },
   "devDependencies": {
     "@netlify/functions": "^2.8.1",

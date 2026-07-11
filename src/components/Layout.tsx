@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   Users,
   Database,
+  CreditCard,
 } from 'lucide-react'
 import { useAuth, type Tier } from '../contexts/AuthContext'
 
@@ -46,6 +47,8 @@ export default function Layout() {
           {isPlatform && (
             <NavItem to="/query" icon={MessageSquare} label="Intelligence Query" />
           )}
+
+          <NavItem to="/account" icon={CreditCard} label="Billing" />
 
           {/* Admin content section */}
           {isAdmin && (

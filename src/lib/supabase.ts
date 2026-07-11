@@ -28,3 +28,15 @@ export type Document = {
   created_at: string
   updated_at: string
 }
+
+export type Subscription = {
+  user_id: string
+  stripe_customer_id: string | null
+  stripe_subscription_id: string | null
+  status: 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'incomplete' | 'incomplete_expired' | null
+  price_id: string | null
+  current_period_end: string | null
+  cancel_at_period_end: boolean
+  trial_end: string | null
+  updated_at: string
+}

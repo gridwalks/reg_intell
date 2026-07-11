@@ -12,6 +12,7 @@ import AdminUsersPage from './pages/AdminUsersPage'
 import AdminCorpusPage from './pages/AdminCorpusPage'
 import PendingApprovalPage from './pages/PendingApprovalPage'
 import UpdatePasswordPage from './pages/UpdatePasswordPage'
+import AccountPage from './pages/AccountPage'
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user, profile, loading } = useAuth()
@@ -87,6 +88,7 @@ export default function App() {
 
         {/* All approved users */}
         <Route path="/news" element={<NewsPage />} />
+        <Route path="/account" element={<AccountPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/news" replace />} />
