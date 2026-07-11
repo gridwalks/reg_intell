@@ -1,4 +1,3 @@
-import { schedule } from '@netlify/functions'
 import type { Handler } from '@netlify/functions'
 import { createClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
@@ -213,5 +212,7 @@ const assembleHandler: Handler = async () => {
   return { statusCode: 200, body: JSON.stringify({ draft_id: draft.id, article_count: eligible.length }) }
 }
 
-// Runs daily at 07:00 UTC (30 min after analysis)
-export const handler = schedule('0 7 * * *', assembleHandler)
+// Newsletter feature retired in favor of https://acceleraqa.substack.com/ —
+// schedule disabled so this no longer runs (and burns API cost) automatically.
+// Kept as a plain handler in case it's ever needed again.
+export const handler = assembleHandler

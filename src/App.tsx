@@ -6,8 +6,6 @@ import AuthPage from './pages/AuthPage'
 import DashboardPage from './pages/DashboardPage'
 import DocumentsPage from './pages/DocumentsPage'
 import ChatPage from './pages/ChatPage'
-import NewsPage from './pages/NewsPage'
-import AdminNewsPage from './pages/AdminNewsPage'
 import AdminUsersPage from './pages/AdminUsersPage'
 import AdminCorpusPage from './pages/AdminCorpusPage'
 import PendingApprovalPage from './pages/PendingApprovalPage'
@@ -31,7 +29,7 @@ function AdminRoute({ children }: { children: ReactNode }) {
 
   if (loading) return <Spinner />
   if (!profile) return <Spinner />
-  if (!isAdmin) return <Navigate to="/news" replace />
+  if (!isAdmin) return <Navigate to="/query" replace />
 
   return <>{children}</>
 }
@@ -41,15 +39,11 @@ function PlatformRoute({ children }: { children: ReactNode }) {
 
   if (loading) return <Spinner />
   if (!profile) return <Spinner />
-  if (tier !== 'platform') return <Navigate to="/news" replace />
+  // Non-paying tiers land on billing instead — there's no free in-app
+  // destination left now that News lives on Substack.
+  if (tier !== 'platform') return <Navigate to="/account" replace />
 
   return <>{children}</>
-}
-
-function TierHome() {
-  const { tier, loading } = useAuth()
-  if (loading) return <Spinner />
-  return <Navigate to={tier === 'platform' ? '/query' : '/news'} replace />
 }
 
 function Spinner() {
@@ -74,7 +68,7 @@ export default function App() {
 
       {/* Protected app shell */}
       <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-        <Route index element={<TierHome />} />
+        <Route index element={<Navigate to="/query" replace />} />
 
         {/* Platform tier only */}
         <Route path="/query" element={<PlatformRoute><ChatPage /></PlatformRoute>} />
@@ -82,16 +76,14 @@ export default function App() {
         {/* Admin only */}
         <Route path="/dashboard" element={<AdminRoute><DashboardPage /></AdminRoute>} />
         <Route path="/documents" element={<AdminRoute><DocumentsPage /></AdminRoute>} />
-        <Route path="/admin/news"  element={<AdminRoute><AdminNewsPage /></AdminRoute>} />
         <Route path="/admin/users"   element={<AdminRoute><AdminUsersPage /></AdminRoute>} />
         <Route path="/admin/corpus" element={<AdminRoute><AdminCorpusPage /></AdminRoute>} />
 
         {/* All approved users */}
-        <Route path="/news" element={<NewsPage />} />
         <Route path="/account" element={<AccountPage />} />
       </Route>
 
-      <Route path="*" element={<Navigate to="/news" replace />} />
+      <Route path="*" element={<Navigate to="/query" replace />} />
     </Routes>
   )
 }

@@ -1,4 +1,3 @@
-import { schedule } from '@netlify/functions'
 import type { Handler } from '@netlify/functions'
 import { createClient } from '@supabase/supabase-js'
 import Parser from 'rss-parser'
@@ -130,5 +129,7 @@ const ingestHandler: Handler = async () => {
   return { statusCode: 200, body: JSON.stringify(summary) }
 }
 
-// Runs daily at 06:00 UTC
-export const handler = schedule('0 6 * * *', ingestHandler)
+// Newsletter feature retired in favor of https://acceleraqa.substack.com/ —
+// schedule disabled so this no longer runs (and burns API cost) automatically.
+// Kept as a plain handler in case it's ever needed again.
+export const handler = ingestHandler

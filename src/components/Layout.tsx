@@ -7,11 +7,13 @@ import {
   LogOut,
   ChevronRight,
   Newspaper,
-  ShieldCheck,
+  ExternalLink,
   Users,
   Database,
   CreditCard,
 } from 'lucide-react'
+
+const SUBSTACK_URL = 'https://acceleraqa.substack.com/'
 import { useAuth, type Tier } from '../contexts/AuthContext'
 
 const TIER_LABELS: Record<Tier, { label: string; color: string }> = {
@@ -40,8 +42,17 @@ export default function Layout() {
 
         {/* Navigation */}
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {/* News — all tiers */}
-          <NavItem to="/news" icon={Newspaper} label="News" />
+          {/* News now lives on Substack */}
+          <a
+            href={SUBSTACK_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-indigo-200 hover:text-white"
+          >
+            <Newspaper className="w-4 h-4 shrink-0" />
+            <span className="flex-1">News</span>
+            <ExternalLink className="w-3 h-3 opacity-60" />
+          </a>
 
           {/* Platform only */}
           {isPlatform && (
@@ -57,7 +68,6 @@ export default function Layout() {
               <NavItem to="/dashboard" icon={LayoutDashboard} label="Dashboard" />
               <NavItem to="/documents" icon={FileText} label="Documents" />
               <p className="text-indigo-400 text-xs px-3 mt-3 mb-1.5 uppercase tracking-wide font-medium">Admin</p>
-              <NavItem to="/admin/news"   icon={ShieldCheck} label="News admin" />
               <NavItem to="/admin/users"  icon={Users}       label="Users" />
               <NavItem to="/admin/corpus" icon={Database}    label="Corpus inspector" />
             </div>
