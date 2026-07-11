@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { startCheckout } from '../lib/stripe'
 import { Shield, AlertCircle } from 'lucide-react'
 
 export default function AuthPage() {
@@ -20,13 +21,21 @@ export default function AuthPage() {
 
     try {
       if (mode === 'signup') {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: { data: { full_name: fullName } },
         })
         if (error) throw error
-        setInfo('Account created. You can now sign in.')
+
+        if (data.session) {
+          // Signed in immediately (email confirmation is off) — go straight
+          // to Stripe to start the trial rather than dropping them on a
+          // generic "you can now sign in" screen.
+          window.location.href = await startCheckout()
+          return
+        }
+        setInfo('Account created — check your email to confirm it, then sign in to start your trial.')
       } else if (mode === 'reset') {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: 'https://regintel.acceleraqa.io/auth',
