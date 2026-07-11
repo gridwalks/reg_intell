@@ -35,7 +35,19 @@ const MODEL_CONFIGS: Record<ModelId, { provider: ModelProvider; label: string }>
   'command-a-plus-05-2026':  { provider: 'cohere', label: 'Command A+ (Cohere)' },
   'command-r7b-12-2024':     { provider: 'cohere', label: 'Command R7B (Cohere)' },
 }
-const DEFAULT_MODEL: ModelId = 'command-r7b-12-2024'
+const DEFAULT_MODEL: ModelId = 'command-a-plus-05-2026'
+
+// Which model to use is an admin-only setting (app_settings, set from the
+// dashboard) — never trust a model chosen by the client making the request.
+async function getActiveModel(): Promise<ModelId> {
+  const { data } = await supabase
+    .from('app_settings')
+    .select('value')
+    .eq('key', 'chat_model')
+    .maybeSingle()
+  const value = data?.value
+  return (value && value in MODEL_CONFIGS) ? value as ModelId : DEFAULT_MODEL
+}
 
 const SYSTEM_PROMPT = `You are RegIntel, a pharmaceutical regulatory intelligence assistant. You answer questions based ONLY on ingested regulatory documents and newsletters provided in <regulatory_context>, supplemented by live Federal Register data in <federal_register_live_data>.
 
@@ -418,8 +430,8 @@ export const handler: Handler = async (event) => {
   if (authError || !user) return { statusCode: 401, body: 'Unauthorized' }
 
   try {
-    const { message, history = [], model: requestedModel } = JSON.parse(event.body!)
-    const model: ModelId = (requestedModel in MODEL_CONFIGS) ? requestedModel as ModelId : DEFAULT_MODEL
+    const { message, history = [] } = JSON.parse(event.body!)
+    const model = await getActiveModel()
     console.log(`[chat] model=${model} provider=${MODEL_CONFIGS[model].provider}`)
 
     if (!message?.trim()) {

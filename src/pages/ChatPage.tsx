@@ -36,19 +36,12 @@ const STARTER_PROMPTS = [
   'Explain the EMA requirements for IMPD (Investigational Medicinal Product Dossier).',
 ]
 
-const MODELS = [
-  { id: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B', provider: 'Groq' },
-  { id: 'command-a-plus-05-2026',  label: 'Command A+',    provider: 'Cohere' },
-  { id: 'command-r7b-12-2024',     label: 'Command R7B',   provider: 'Cohere' },
-]
-
 export default function ChatPage() {
   const { session } = useAuth()
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [model, setModel] = useState(MODELS[0].id)
   const [modalUrl, setModalUrl] = useState<string | null>(null)
   const [modalTitle, setModalTitle] = useState('')
   const [newsletterModal, setNewsletterModal] = useState<NewsletterDetail | null>(null)
@@ -109,7 +102,6 @@ export default function ChatPage() {
         body: JSON.stringify({
           message: text,
           history: messages.map(m => ({ role: m.role, content: m.content })),
-          model,
         }),
       })
 
@@ -141,24 +133,9 @@ export default function ChatPage() {
     <div className="flex flex-col h-screen">
       {/* Header */}
       <div className="border-b border-gray-200 bg-white px-6 py-4 shrink-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-blue-600" />
-            <h1 className="text-lg font-semibold text-gray-900">Intelligence Query</h1>
-          </div>
-          <div className="flex items-center gap-2">
-            <label className="text-xs text-gray-400 shrink-0">Model</label>
-            <select
-              value={model}
-              onChange={e => { setModel(e.target.value); setMessages([]) }}
-              disabled={loading}
-              className="text-xs border border-gray-300 rounded-lg px-2.5 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 disabled:opacity-50"
-            >
-              {MODELS.map(m => (
-                <option key={m.id} value={m.id}>{m.provider} — {m.label}</option>
-              ))}
-            </select>
-          </div>
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-5 h-5 text-blue-600" />
+          <h1 className="text-lg font-semibold text-gray-900">Intelligence Query</h1>
         </div>
         <p className="text-xs text-gray-500 mt-0.5">
           Ask questions grounded in your uploaded regulatory documents and newsletters.

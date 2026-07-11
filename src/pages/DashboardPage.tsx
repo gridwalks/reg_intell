@@ -2,9 +2,20 @@ import { useEffect, useState } from 'react'
 import {
   Database, HardDrive, Users, FileText, Layers,
   Newspaper, Rss, RefreshCw, AlertTriangle, CheckCircle, Clock,
-  UserCheck,
+  UserCheck, Bot,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import { supabase } from '../lib/supabase'
+
+// Kept in sync by hand with MODEL_CONFIGS in netlify/functions/chat.ts —
+// the frontend and the function are separate bundles, same as elsewhere
+// in this codebase (e.g. profiles.tier duplicated between AuthContext and
+// migrations rather than shared).
+const MODELS = [
+  { id: 'command-r7b-12-2024',     label: 'Command R7B',   provider: 'Cohere' },
+  { id: 'command-a-plus-05-2026',  label: 'Command A+',    provider: 'Cohere' },
+  { id: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B', provider: 'Groq' },
+]
 
 type TableSize = { table_name: string; row_count: number; size_bytes: number }
 
@@ -35,10 +46,39 @@ function pct(used: number, limit: number) {
 }
 
 export default function DashboardPage() {
-  const { session } = useAuth()
+  const { session, user } = useAuth()
   const [data, setData] = useState<HealthData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [chatModel, setChatModel] = useState<string | null>(null)
+  const [modelSaving, setModelSaving] = useState(false)
+  const [modelError, setModelError] = useState('')
+
+  const fetchChatModel = async () => {
+    const { data } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'chat_model')
+      .maybeSingle()
+    setChatModel(data?.value ?? 'command-a-plus-05-2026')
+  }
+
+  const updateChatModel = async (value: string) => {
+    setModelError('')
+    setModelSaving(true)
+    const previous = chatModel
+    setChatModel(value) // optimistic
+    const { error } = await supabase
+      .from('app_settings')
+      .upsert({ key: 'chat_model', value, updated_by: user?.id, updated_at: new Date().toISOString() })
+    if (error) {
+      setChatModel(previous)
+      setModelError(error.message)
+    }
+    setModelSaving(false)
+  }
+
+  useEffect(() => { fetchChatModel() }, [])
 
   const fetchHealth = async () => {
     if (!session) return
@@ -92,6 +132,37 @@ export default function DashboardPage() {
           {error}
         </div>
       )}
+
+      {/* ── Assistant model ── */}
+      <section className="mb-8">
+        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Assistant Model</h2>
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Bot className="w-4 h-4 text-indigo-600" />
+            <span className="text-sm font-medium text-gray-700">Model used for Intelligence Query</span>
+          </div>
+          {chatModel === null ? (
+            <div className="text-xs text-gray-400">Loading…</div>
+          ) : (
+            <>
+              <select
+                value={chatModel}
+                onChange={e => updateChatModel(e.target.value)}
+                disabled={modelSaving}
+                className="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 disabled:opacity-50"
+              >
+                {MODELS.map(m => (
+                  <option key={m.id} value={m.id}>{m.provider} — {m.label}</option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-400 mt-2">
+                Applies to every user immediately — this isn't per-session.
+              </p>
+              {modelError && <p className="text-xs text-red-600 mt-1">{modelError}</p>}
+            </>
+          )}
+        </div>
+      </section>
 
       {loading && !data && (
         <div className="text-gray-400 text-sm">Loading metrics…</div>
