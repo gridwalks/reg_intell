@@ -34,6 +34,11 @@ export const handler: Handler = async (event) => {
   const { data: { user }, error: authErr } = await authClient.auth.getUser(token)
   if (authErr || !user) return { statusCode: 401, headers, body: '{"error":"Unauthorized"}' }
 
+  if (!process.env.SITE_URL) {
+    console.error('[create-portal-session] SITE_URL is not set')
+    return { statusCode: 500, headers, body: JSON.stringify({ error: 'Server misconfigured: SITE_URL is not set' }) }
+  }
+
   try {
     const { data: sub } = await adminClient
       .from('subscriptions')

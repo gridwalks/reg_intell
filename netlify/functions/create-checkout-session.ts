@@ -45,9 +45,14 @@ export const handler: Handler = async (event) => {
     existingUser = user
   }
 
+  if (!process.env.SITE_URL) {
+    console.error('[create-checkout-session] SITE_URL is not set')
+    return { statusCode: 500, headers, body: JSON.stringify({ error: 'Server misconfigured: SITE_URL is not set' }) }
+  }
+
   try {
     let customerId: string | undefined
-    const siteUrl = process.env.SITE_URL!
+    const siteUrl = process.env.SITE_URL
 
     if (existingUser) {
       const { data: existing } = await adminClient
