@@ -30,43 +30,59 @@ export const handler: Handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers, body: '' }
   if (event.httpMethod !== 'POST') return { statusCode: 405, headers, body: '{"error":"Method not allowed"}' }
 
+  // Two entry points share this function:
+  //  - No Authorization header: a brand-new visitor clicking "Create Account".
+  //    No Supabase user exists yet — Stripe collects the email, and the
+  //    webhook provisions the RegIntel account once payment succeeds.
+  //  - Authorization header present: an existing (e.g. free-tier) user
+  //    upgrading from their account page. Reuse/link their Stripe customer.
   const token = event.headers.authorization?.replace('Bearer ', '')
-  if (!token) return { statusCode: 401, headers, body: '{"error":"Unauthorized"}' }
+  let existingUser: { id: string; email?: string } | null = null
 
-  const { data: { user }, error: authErr } = await authClient.auth.getUser(token)
-  if (authErr || !user) return { statusCode: 401, headers, body: '{"error":"Unauthorized"}' }
+  if (token) {
+    const { data: { user }, error: authErr } = await authClient.auth.getUser(token)
+    if (authErr || !user) return { statusCode: 401, headers, body: '{"error":"Unauthorized"}' }
+    existingUser = user
+  }
 
   try {
-    // Reuse an existing Stripe customer id if we have one.
-    const { data: existing } = await adminClient
-      .from('subscriptions')
-      .select('stripe_customer_id')
-      .eq('user_id', user.id)
-      .maybeSingle()
+    let customerId: string | undefined
+    const siteUrl = process.env.SITE_URL!
 
-    let customerId = existing?.stripe_customer_id as string | undefined
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: user.email,
-        metadata: { supabase_uid: user.id },
-      })
-      customerId = customer.id
-      // Seed the row so the customer id is linked before any webhook lands.
-      await adminClient.from('subscriptions')
-        .upsert({ user_id: user.id, stripe_customer_id: customerId })
+    if (existingUser) {
+      const { data: existing } = await adminClient
+        .from('subscriptions')
+        .select('stripe_customer_id')
+        .eq('user_id', existingUser.id)
+        .maybeSingle()
+
+      customerId = existing?.stripe_customer_id as string | undefined
+      if (!customerId) {
+        const customer = await stripe.customers.create({
+          email: existingUser.email,
+          metadata: { supabase_uid: existingUser.id },
+        })
+        customerId = customer.id
+        // Seed the row so the customer id is linked before any webhook lands.
+        await adminClient.from('subscriptions')
+          .upsert({ user_id: existingUser.id, stripe_customer_id: customerId })
+      }
     }
 
-    const siteUrl = process.env.SITE_URL!
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
-      customer: customerId,
+      customer: customerId, // undefined for anonymous checkout — Stripe collects the email itself
       line_items: [{ price: process.env.STRIPE_PRICE_ID!, quantity: 1 }],
       subscription_data: {
         trial_period_days: 5,
-        metadata: { supabase_uid: user.id },
+        metadata: existingUser ? { supabase_uid: existingUser.id } : {},
       },
-      success_url: `${siteUrl}/account?checkout=success`,
-      cancel_url: `${siteUrl}/account?checkout=cancelled`,
+      success_url: existingUser
+        ? `${siteUrl}/account?checkout=success`
+        : `${siteUrl}/auth?checkout=success`,
+      cancel_url: existingUser
+        ? `${siteUrl}/account?checkout=cancelled`
+        : `${siteUrl}/auth?checkout=cancelled`,
     })
 
     return { statusCode: 200, headers, body: JSON.stringify({ url: session.url }) }

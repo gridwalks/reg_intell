@@ -44,10 +44,14 @@ export const handler: Handler = async (event) => {
   try {
     switch (stripeEvent.type) {
       case 'checkout.session.completed': {
-        // Ensure the customer id is linked. Status arrives via subscription events.
+        // For an anonymous checkout (new-signup flow) this is the first
+        // event to arrive, and the only one carrying the email Stripe just
+        // collected — pass it through so a brand-new account can be
+        // provisioned right here rather than waiting on subscription events.
         const s = stripeEvent.data.object as Stripe.Checkout.Session
-        const uid = s.metadata?.supabase_uid ?? (await resolveUid(s.customer as string))
-        if (uid && s.customer) {
+        if (!s.customer) break
+        const uid = await getOrCreateUid(s.customer as string, s.customer_details?.email ?? s.customer_email)
+        if (uid) {
           await admin.from('subscriptions')
             .upsert({ user_id: uid, stripe_customer_id: s.customer as string })
         }
@@ -58,7 +62,7 @@ export const handler: Handler = async (event) => {
       case 'customer.subscription.updated':
       case 'customer.subscription.deleted': {
         const sub = stripeEvent.data.object as Stripe.Subscription
-        const uid = sub.metadata?.supabase_uid ?? (await resolveUid(sub.customer as string))
+        const uid = await getOrCreateUid(sub.customer as string, null)
         if (!uid) break
 
         // As of Stripe's newer API versions, current_period_end moved off the
@@ -114,13 +118,58 @@ export const handler: Handler = async (event) => {
   return { statusCode: 200, body: JSON.stringify({ received: true }) }
 }
 
-// Fallback: map a Stripe customer id back to a Supabase user id.
-async function resolveUid(customerId: string): Promise<string | null> {
-  const { data } = await admin.from('subscriptions')
+// Map a Stripe customer id to a Supabase user id, provisioning the RegIntel
+// account on first contact if one doesn't exist yet. Covers three cases:
+//  1. Already linked (subscriptions row, or the customer was tagged earlier
+//     in this same flow / by an authenticated upgrade checkout).
+//  2. An account with this email already exists (e.g. an admin-created user
+//     subscribing for the first time) — link it instead of duplicating.
+//  3. Brand-new customer from the anonymous checkout flow — create the
+//     account and email them a link to set a password.
+async function getOrCreateUid(customerId: string, emailHint?: string | null): Promise<string | null> {
+  const { data: linked } = await admin.from('subscriptions')
     .select('user_id')
     .eq('stripe_customer_id', customerId)
     .maybeSingle()
-  if (data?.user_id) return data.user_id
-  const customer = await stripe.customers.retrieve(customerId)
-  return (customer as Stripe.Customer).metadata?.supabase_uid ?? null
+  if (linked?.user_id) return linked.user_id
+
+  const customerResponse = await stripe.customers.retrieve(customerId)
+  if (customerResponse.deleted) return null
+  const customer = customerResponse as Stripe.Customer
+
+  if (customer.metadata?.supabase_uid) return customer.metadata.supabase_uid
+
+  const email = emailHint ?? customer.email
+  if (!email) return null
+
+  const { data: existingProfile } = await admin.from('profiles')
+    .select('id')
+    .eq('email', email)
+    .maybeSingle()
+
+  let uid = existingProfile?.id as string | undefined
+
+  if (!uid) {
+    const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
+      redirectTo: `${process.env.SITE_URL}/auth`,
+    })
+    if (data?.user) {
+      uid = data.user.id
+    } else if (error?.message?.toLowerCase().includes('already been registered')) {
+      // Lost a race with a concurrent webhook delivery creating the same
+      // user (checkout.session.completed and customer.subscription.created
+      // can arrive close together) — reuse what it created.
+      const { data: retry } = await admin.from('profiles').select('id').eq('email', email).maybeSingle()
+      uid = retry?.id
+    } else {
+      console.error('[stripe-webhook] inviteUserByEmail failed:', error)
+      return null
+    }
+  }
+
+  if (!uid) return null
+
+  // Tag the customer so future events resolve without touching profiles/auth again.
+  await stripe.customers.update(customerId, { metadata: { supabase_uid: uid } })
+  return uid
 }

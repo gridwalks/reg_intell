@@ -1,16 +1,22 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { startCheckout } from '../lib/stripe'
-import { Shield, AlertCircle } from 'lucide-react'
+import { Shield, AlertCircle, CreditCard } from 'lucide-react'
 
 export default function AuthPage() {
+  const [params] = useSearchParams()
   const [mode, setMode] = useState<'login' | 'signup' | 'reset'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [fullName, setFullName] = useState('')
   const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [error, setError] = useState('')
-  const [info, setInfo] = useState('')
+  const [info, setInfo] = useState(() => {
+    const checkout = params.get('checkout')
+    if (checkout === 'success') return 'Payment successful — check your email for a link to set your password and get started.'
+    if (checkout === 'cancelled') return 'Checkout cancelled — no charge was made.'
+    return ''
+  })
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -21,21 +27,11 @@ export default function AuthPage() {
 
     try {
       if (mode === 'signup') {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { data: { full_name: fullName } },
-        })
-        if (error) throw error
-
-        if (data.session) {
-          // Signed in immediately (email confirmation is off) — go straight
-          // to Stripe to start the trial rather than dropping them on a
-          // generic "you can now sign in" screen.
-          window.location.href = await startCheckout()
-          return
-        }
-        setInfo('Account created — check your email to confirm it, then sign in to start your trial.')
+        // No RegIntel account exists yet — Stripe collects the email and
+        // payment, and the webhook creates the account once payment
+        // succeeds, emailing a link to set a password.
+        window.location.href = await startCheckout()
+        return
       } else if (mode === 'reset') {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: 'https://regintel.acceleraqa.io/auth',
@@ -96,35 +92,32 @@ export default function AuthPage() {
             </div>
           )}
 
+          {mode === 'signup' && (
+            <div className="mb-5">
+              <h2 className="text-lg font-semibold text-gray-900">Start your free trial</h2>
+              <p className="text-sm text-gray-500 mt-1">
+                5 days free, then billed monthly. You'll enter your email and payment details with
+                Stripe on the next step — your RegIntel account is created automatically once that's done.
+              </p>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
-            {mode === 'signup' && (
+            {mode !== 'signup' && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
                 <input
-                  type="text"
-                  value={fullName}
-                  onChange={e => setFullName(e.target.value)}
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
                   required
-                  placeholder="Dr. Jane Smith"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-transparent text-sm"
-                  style={{ '--tw-ring-color': '#4F46E5' } as React.CSSProperties}
+                  placeholder="you@company.com"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
                 />
               </div>
             )}
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                required
-                placeholder="you@company.com"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
-              />
-            </div>
-
-            {mode !== 'reset' && (
+            {mode === 'login' && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
                 <input
@@ -172,10 +165,15 @@ export default function AuthPage() {
             <button
               type="submit"
               disabled={loading || (mode === 'signup' && !agreedToTerms)}
-              className="w-full py-2.5 text-white font-medium rounded-lg transition-opacity text-sm disabled:opacity-60"
+              className="w-full py-2.5 text-white font-medium rounded-lg transition-opacity text-sm disabled:opacity-60 flex items-center justify-center gap-2"
               style={{ backgroundColor: '#4F46E5' }}
             >
-              {loading ? 'Please wait…' : mode === 'login' ? 'Sign In' : mode === 'signup' ? 'Create Account' : 'Send reset link'}
+              {mode === 'signup' && !loading && <CreditCard className="w-4 h-4" />}
+              {loading
+                ? 'Please wait…'
+                : mode === 'login' ? 'Sign In'
+                : mode === 'signup' ? 'Continue to payment'
+                : 'Send reset link'}
             </button>
 
             {mode === 'login' && (
