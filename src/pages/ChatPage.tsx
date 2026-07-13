@@ -93,11 +93,17 @@ export default function ChatPage() {
     setLoading(true)
 
     try {
+      // Supabase pauses its auto-refresh timer while the tab is backgrounded,
+      // so the token on the context's `session` object can be stale by the
+      // time the tab regains focus. getSession() refreshes it if needed.
+      const { data: { session: freshSession } } = await supabase.auth.getSession()
+      const accessToken = freshSession?.access_token ?? session.access_token
+
       const res = await fetch('/.netlify/functions/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           message: text,

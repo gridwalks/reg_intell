@@ -429,11 +429,21 @@ async function fetchFdaContext(): Promise<string> {
     // Restrict to Rule and Proposed Rule types — excludes tobacco/food/device notices
     // that are technically FDA but irrelevant to pharma/clinical/PV queries
     const pharmaTypes = 'conditions[type][]=Rule&conditions[type][]=Proposed%20Rule&conditions[type][]=Notice'
-    const [piRes, sigRes, pubRes] = await Promise.all([
-      fetch(`${base}/public-inspection-documents.json?fields[]=title&fields[]=document_number&fields[]=html_url&fields[]=document_types&fields[]=abstract&per_page=10&${fda}`),
-      fetch(`${base}/documents.json?per_page=10&order=newest&${docFields}&${fda}&${pharmaTypes}&conditions[significant]=1&conditions[publication_date][gte]=${weekAgo}&conditions[publication_date][lte]=${today}`),
-      fetch(`${base}/documents.json?per_page=10&order=newest&${docFields}&${fda}&${pharmaTypes}&conditions[publication_date][gte]=${today}&conditions[publication_date][lte]=${today}`),
-    ])
+
+    // This is an unauthenticated external government API with no SLA — bound it
+    // so a slow response can't stall every chat request behind it.
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 4000)
+    let piRes: Response, sigRes: Response, pubRes: Response
+    try {
+      ;[piRes, sigRes, pubRes] = await Promise.all([
+        fetch(`${base}/public-inspection-documents.json?fields[]=title&fields[]=document_number&fields[]=html_url&fields[]=document_types&fields[]=abstract&per_page=10&${fda}`, { signal: controller.signal }),
+        fetch(`${base}/documents.json?per_page=10&order=newest&${docFields}&${fda}&${pharmaTypes}&conditions[significant]=1&conditions[publication_date][gte]=${weekAgo}&conditions[publication_date][lte]=${today}`, { signal: controller.signal }),
+        fetch(`${base}/documents.json?per_page=10&order=newest&${docFields}&${fda}&${pharmaTypes}&conditions[publication_date][gte]=${today}&conditions[publication_date][lte]=${today}`, { signal: controller.signal }),
+      ])
+    } finally {
+      clearTimeout(timeout)
+    }
 
     const [piJson, sigJson, pubJson] = await Promise.all([piRes.json(), sigRes.json(), pubRes.json()])
 
@@ -536,14 +546,20 @@ export const handler: Handler = async (event) => {
         .from('documents')
         .select('id, file_path, file_type')
         .in('id', uniqueDocIds)
-      for (const doc of docs ?? []) {
-        // Only generate signed URLs for PDFs (viewable in browser)
-        if (doc.file_type === 'application/pdf' || doc.file_path?.endsWith('.pdf')) {
-          const { data: signed } = await supabase.storage
-            .from('regulatory-documents')
-            .createSignedUrl(doc.file_path, 3600)
-          if (signed?.signedUrl) docFilePaths[doc.id] = signed.signedUrl
-        }
+      // Only generate signed URLs for PDFs (viewable in browser). Run these in
+      // parallel — with up to 8 sources referenced per answer, awaiting them
+      // one at a time in a loop serialized up to 8 round-trips to Storage.
+      const pdfDocs = (docs ?? []).filter(
+        doc => doc.file_type === 'application/pdf' || doc.file_path?.endsWith('.pdf')
+      )
+      const signedResults = await Promise.all(
+        pdfDocs.map(doc =>
+          supabase.storage.from('regulatory-documents').createSignedUrl(doc.file_path, 3600)
+            .then(({ data: signed }) => ({ id: doc.id, signedUrl: signed?.signedUrl }))
+        )
+      )
+      for (const { id, signedUrl } of signedResults) {
+        if (signedUrl) docFilePaths[id] = signedUrl
       }
     }
 
