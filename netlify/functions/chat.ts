@@ -287,18 +287,40 @@ function classifyDomain(query: string): string | null {
   // Pharmacovigilance / safety reporting
   if (/\b(susar|icsr|psur|pbrer|dsur|pharmacovigilan|adverse\s+(event|reaction|effect)|signal detection|benefit.risk|rmp|pv\b|eudravigilance|cioms|safety\s+report)/i.test(q)) return 'pharmacovigilance'
   // GMP / manufacturing quality
-  // Note: bare "manufacturing" was removed — it's a generic word that appears in
-  // queries about many topics that aren't GMP-specific (e.g. "ICH Q9 quality risk
-  // management ... applied in pharmaceutical manufacturing"), which misclassified
-  // them as 'GMP' and caused the domain filter to hide correctly-tagged 'general'
-  // documents (like ICH Q9 itself) from retrieval entirely.
-  if (/\b(gmp|cleanroom|grade [abcd]\b|annex\s*1|annex\s*one|sterile|aseptic|contamination|batch\s+record|validation|cleaning\s+valid)/i.test(q)) return 'GMP'
+  // Note: bare "manufacturing" and bare "validation" were removed — both are
+  // generic words that appear in queries about many topics that aren't
+  // GMP-specific (e.g. ICH Q9 risk management mentions "pharmaceutical
+  // manufacturing" in passing; "validation" also covers GCP computer-system
+  // validation and CMC analytical-method validation). A misclassified domain
+  // causes the SQL domain filter to hide correctly-tagged documents (including
+  // 'general'-tagged ones like ICH Q9) from retrieval entirely — replaced
+  // "validation" with the more specific "process valid" it was likely meant to
+  // catch (cleaning validation already has its own entry below).
+  if (/\b(gmp|cleanroom|grade [abcd]\b|annex\s*1|annex\s*one|sterile|aseptic|contamination|batch\s+record|process\s+valid|cleaning\s+valid)/i.test(q)) return 'GMP'
   // GCP / clinical trials
-  if (/\b(gcp|clinical\s+trial|investigat|ich\s+e\d|e6\(r[23]\)|protocol|cra\b|monitoring|randomis|irt\b|rtsm|etmf|ctms|rbqm|rbm\b|sdv\b|qtl\b)/i.test(q)) return 'GCP'
+  // Note: bare "investigat" (investigation/investigator), bare "monitoring",
+  // and bare "protocol" were removed — all three are generic words used just
+  // as often for GMP deviation/CAPA investigations, PV case follow-up,
+  // environmental/quality monitoring (GMP, Q10 PQS), and CMC/lab validation
+  // protocols. Replaced with the more specific clinical-trial phrasing they
+  // were likely meant to catch.
+  if (/\b(gcp|clinical\s+trial|trial\s+protocol|investigator\s+brochure|principal\s+investigator|ich\s+e\d|e6\(r[23]\)|cra\b|clinical\s+monitoring|centralized\s+monitoring|on-site\s+monitoring|randomis|irt\b|rtsm|etmf|ctms|rbqm|rbm\b|sdv\b|qtl\b)/i.test(q)) return 'GCP'
   // CMC / chemistry manufacturing controls
-  if (/\b(cmc\b|specification|stability|analytical|method valid|impurit|excipient|container\s+closure|drug\s+substance|drug\s+product)/i.test(q)) return 'CMC'
+  // Note: bare "specification", "analytical", "drug substance", and "drug
+  // product" were removed. "Drug substance"/"drug product" in particular are
+  // near-ubiquitous phrases across the entire pharma regulatory vocabulary
+  // (GMP batch release, REMS, PV reports all use them), so they were forcing
+  // unrelated queries into the CMC domain and hiding correctly-tagged content
+  // from every other domain. The remaining terms (cmc, stability, method
+  // valid, impurities, excipient, container closure) are specific enough on
+  // their own to identify genuine CMC queries.
+  if (/\b(cmc\b|stability|method\s+valid|impurit|excipient|container\s+closure)/i.test(q)) return 'CMC'
   // Registration / submissions
-  if (/\b(nda\b|bla\b|anda\b|ind\b|maa\b|cta\b|ectd|ctd\b|submission|dossier|type i[ab]\b|type ii\b|variation|orphan|breakthrough|prime\b|fast\s+track)/i.test(q)) return 'registration'
+  // Note: bare "submission" was removed — REMS and PBRER/PSUR (pharmacovigilance)
+  // documents also discuss "submission" timelines constantly, so it forced
+  // those queries into 'registration' instead. The remaining acronyms/terms
+  // are specific enough to identify genuine registration queries.
+  if (/\b(nda\b|bla\b|anda\b|ind\b|maa\b|cta\b|ectd|ctd\b|dossier|type i[ab]\b|type ii\b|variation|orphan|breakthrough|prime\b|fast\s+track)/i.test(q)) return 'registration'
   // GDP / wholesale distribution & supply chain
   if (/\b(gdp\b|good\s+distribution\s+practice|wholesale\s+distribut|distribution\s+authoris|parallel\s+distribut|drug\s+wholesal|cold\s+chain|temperature[- ]control(led)?\s+(storage|transport|distribut))/i.test(q)) return 'distribution'
   return null // cross-cutting — do not filter
