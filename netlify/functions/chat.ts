@@ -186,16 +186,19 @@ You MUST include these specific timelines in your answer — do not summarise th
 
 PBRER SUBMISSION SCHEDULE — ICH E2C(R2):
 International Birth Date (IBD) = date of first marketing authorisation anywhere in the world. All PBRER submission dates are anchored to the IBD.
-Data Lock Point (DLP) = cut-off date for data inclusion. Submission due within 90 calendar days of DLP.
+Data Lock Point (DLP) = cut-off date for data inclusion. Per GVP Module VII (implementing Directive 2010/84/EU), the submission deadline depends on the interval the report covers:
+- Within 70 calendar days of the DLP for reports covering intervals up to and including 12 months.
+- Within 90 calendar days of the DLP for reports covering intervals in excess of 12 months.
+- Ad hoc reports requested by a competent authority: per the timeline specified in the request, or within 90 calendar days of the DLP if none is specified.
 
 Submission frequency by product age:
-- 0–2 years post-approval: every 6 months
-- 2–5 years post-approval: annually
-- After 5 years: every 3 years
+- 0–2 years post-approval: every 6 months (≤12-month interval — 70-day deadline)
+- 2–5 years post-approval: annually (12-month interval — 70-day deadline)
+- After 5 years: every 3 years (>12-month interval — 90-day deadline)
 
-EU equivalent: PSUR. Dates governed by the EURD List.
+EU equivalent: PSUR, per GVP Module VII (Periodic Safety Update Report). Dates governed by the EURD List.
 PBRER structure: 32 standardised sections.
-IMPORTANT: "every 6–12 months" is incorrect and must never be used. State the exact schedule above.
+IMPORTANT: "every 6–12 months" is incorrect and must never be used. State the exact schedule above. Do not flatten the 70/90-day distinction to a single number.
 
 EMA VARIATION PROCEDURES — TYPE IB:
 Type IB is a "notify and wait" procedure — NOT prior approval:
