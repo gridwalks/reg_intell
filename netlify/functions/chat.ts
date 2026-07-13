@@ -287,7 +287,12 @@ function classifyDomain(query: string): string | null {
   // Pharmacovigilance / safety reporting
   if (/\b(susar|icsr|psur|pbrer|dsur|pharmacovigilan|adverse\s+(event|reaction|effect)|signal detection|benefit.risk|rmp|pv\b|eudravigilance|cioms|safety\s+report)/i.test(q)) return 'pharmacovigilance'
   // GMP / manufacturing quality
-  if (/\b(gmp|cleanroom|grade [abcd]\b|annex\s*1|annex\s*one|sterile|aseptic|contamination|manufacturing|batch\s+record|validation|cleaning\s+valid)/i.test(q)) return 'GMP'
+  // Note: bare "manufacturing" was removed — it's a generic word that appears in
+  // queries about many topics that aren't GMP-specific (e.g. "ICH Q9 quality risk
+  // management ... applied in pharmaceutical manufacturing"), which misclassified
+  // them as 'GMP' and caused the domain filter to hide correctly-tagged 'general'
+  // documents (like ICH Q9 itself) from retrieval entirely.
+  if (/\b(gmp|cleanroom|grade [abcd]\b|annex\s*1|annex\s*one|sterile|aseptic|contamination|batch\s+record|validation|cleaning\s+valid)/i.test(q)) return 'GMP'
   // GCP / clinical trials
   if (/\b(gcp|clinical\s+trial|investigat|ich\s+e\d|e6\(r[23]\)|protocol|cra\b|monitoring|randomis|irt\b|rtsm|etmf|ctms|rbqm|rbm\b|sdv\b|qtl\b)/i.test(q)) return 'GCP'
   // CMC / chemistry manufacturing controls
