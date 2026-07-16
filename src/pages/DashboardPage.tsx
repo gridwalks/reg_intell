@@ -12,9 +12,10 @@ import { supabase } from '../lib/supabase'
 // in this codebase (e.g. profiles.tier duplicated between AuthContext and
 // migrations rather than shared).
 const MODELS = [
-  { id: 'command-r7b-12-2024',     label: 'Command R7B',   provider: 'Cohere' },
-  { id: 'command-a-plus-05-2026',  label: 'Command A+',    provider: 'Cohere' },
-  { id: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B', provider: 'Groq' },
+  { id: 'command-r7b-12-2024',      label: 'Command R7B',      provider: 'Cohere' },
+  { id: 'command-a-plus-05-2026',   label: 'Command A+',       provider: 'Cohere' },
+  { id: 'llama-3.3-70b-versatile',  label: 'Llama 3.3 70B',   provider: 'Groq' },
+  { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5', provider: 'Anthropic' },
 ]
 
 type TableSize = { table_name: string; row_count: number; size_bytes: number }

@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import OpenAI from 'openai'
 import Groq from 'groq-sdk'
 import { CohereClient } from 'cohere-ai'
+import Anthropic from '@anthropic-ai/sdk'
 
 // Derive Supabase REST URL from the DATABASE_URL provided by Netlify's Supabase integration
 function getSupabaseUrl(): string {
@@ -24,16 +25,26 @@ function getCohere(): CohereClient {
   return _cohere
 }
 
-type ModelProvider = 'groq' | 'cohere'
+// Lazy — only instantiated when an Anthropic model is actually selected
+let _anthropic: Anthropic | null = null
+function getAnthropic(): Anthropic {
+  if (!process.env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY is not set in environment variables')
+  if (!_anthropic) _anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+  return _anthropic
+}
+
+type ModelProvider = 'groq' | 'cohere' | 'anthropic'
 type ModelId =
   | 'llama-3.3-70b-versatile'  // Groq
   | 'command-a-plus-05-2026'   // Cohere Command A+
   | 'command-r7b-12-2024'      // Cohere Command R7B
+  | 'claude-haiku-4-5-20251001' // Anthropic Claude Haiku 4.5
 
 const MODEL_CONFIGS: Record<ModelId, { provider: ModelProvider; label: string }> = {
-  'llama-3.3-70b-versatile': { provider: 'groq',   label: 'Llama 3.3 70B (Groq)' },
-  'command-a-plus-05-2026':  { provider: 'cohere', label: 'Command A+ (Cohere)' },
-  'command-r7b-12-2024':     { provider: 'cohere', label: 'Command R7B (Cohere)' },
+  'llama-3.3-70b-versatile':  { provider: 'groq',      label: 'Llama 3.3 70B (Groq)' },
+  'command-a-plus-05-2026':   { provider: 'cohere',    label: 'Command A+ (Cohere)' },
+  'command-r7b-12-2024':      { provider: 'cohere',    label: 'Command R7B (Cohere)' },
+  'claude-haiku-4-5-20251001': { provider: 'anthropic', label: 'Claude Haiku 4.5 (Anthropic)' },
 }
 const DEFAULT_MODEL: ModelId = 'command-a-plus-05-2026'
 
@@ -413,6 +424,23 @@ async function generateAnswer(
     const text = fromBlocks ?? fromDirect ?? fromGenerations ?? ''
     if (!text) console.error('[cohere] could not extract text. Full response:', JSON.stringify(r))
     return text
+  }
+
+  if (config.provider === 'anthropic') {
+    const response = await getAnthropic().messages.create({
+      model,
+      system: systemPrompt,
+      messages: [
+        ...history.map(m => ({
+          role: m.role === 'user' ? ('user' as const) : ('assistant' as const),
+          content: m.content,
+        })),
+        { role: 'user', content: userContent },
+      ],
+      max_tokens: 4096,
+      temperature: 0.3,
+    })
+    return response.content.find(b => b.type === 'text')?.text ?? ''
   }
 
   throw new Error(`Unknown provider for model: ${model}`)
