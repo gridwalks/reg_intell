@@ -45,6 +45,7 @@ export default function ChatPage() {
   const [modalUrl, setModalUrl] = useState<string | null>(null)
   const [modalTitle, setModalTitle] = useState('')
   const [newsletterModal, setNewsletterModal] = useState<NewsletterDetail | null>(null)
+  const [usage, setUsage] = useState<{ used: number; limit: number } | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -119,8 +120,9 @@ export default function ChatPage() {
         throw new Error(`Server returned non-JSON response (status ${res.status}). Check Netlify function logs.`)
       }
       if (!res.ok) throw new Error((parsed.error as string) || 'Query failed')
-      const { message, sources, lowConfidence } = parsed as { message: string; sources: Source[]; lowConfidence: boolean }
+      const { message, sources, lowConfidence, usage: usageData } = parsed as { message: string; sources: Source[]; lowConfidence: boolean; usage?: { used: number; limit: number } | null }
       setMessages(prev => [...prev, { role: 'assistant', content: message, sources, lowConfidence }])
+      if (usageData) setUsage(usageData)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Something went wrong.')
     } finally {
@@ -139,9 +141,22 @@ export default function ChatPage() {
     <div className="flex flex-col h-screen">
       {/* Header */}
       <div className="border-b border-gray-200 bg-white px-6 py-4 shrink-0">
-        <div className="flex items-center gap-2">
-          <Sparkles className="w-5 h-5 text-blue-600" />
-          <h1 className="text-lg font-semibold text-gray-900">Intelligence Query</h1>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-blue-600" />
+            <h1 className="text-lg font-semibold text-gray-900">Intelligence Query</h1>
+          </div>
+          {usage && (
+            <div className="flex items-center gap-2 text-xs text-gray-500 shrink-0">
+              <div className="w-24 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${usage.used / usage.limit >= 0.9 ? 'bg-red-500' : usage.used / usage.limit >= 0.7 ? 'bg-amber-500' : 'bg-blue-500'}`}
+                  style={{ width: `${Math.min(100, (usage.used / usage.limit) * 100)}%` }}
+                />
+              </div>
+              <span>{usage.used} / {usage.limit} queries</span>
+            </div>
+          )}
         </div>
         <p className="text-xs text-gray-500 mt-0.5">
           Ask questions grounded in your uploaded regulatory documents and newsletters.

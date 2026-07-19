@@ -48,6 +48,13 @@ const MODEL_CONFIGS: Record<ModelId, { provider: ModelProvider; label: string }>
 }
 const DEFAULT_MODEL: ModelId = 'command-a-plus-05-2026'
 
+// Monthly query limits by tier (null = unlimited)
+const TIER_LIMITS: Record<string, number | null> = {
+  platform:   200,
+  newsletter:  20,
+  free:         5,
+}
+
 // Which model to use is an admin-only setting (app_settings, set from the
 // dashboard) — never trust a model chosen by the client making the request.
 async function getActiveModel(): Promise<ModelId> {
@@ -514,6 +521,32 @@ export const handler: Handler = async (event) => {
       return { statusCode: 400, body: JSON.stringify({ error: 'Missing message' }) }
     }
 
+    // ── Usage limit check ────────────────────────────────────────────────────
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('tier, monthly_query_limit')
+      .eq('id', user.id)
+      .single()
+
+    const tier = (profile?.tier ?? 'free') as string
+    const limit: number | null = profile?.monthly_query_limit ?? TIER_LIMITS[tier] ?? 5
+
+    let usedThisMonth = 0
+    if (limit !== null) {
+      const { data: usageCount } = await supabase.rpc('usage_this_month', { p_user_id: user.id })
+      usedThisMonth = (usageCount as number) ?? 0
+      if (usedThisMonth >= limit) {
+        return {
+          statusCode: 429,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            error: `Monthly query limit reached (${usedThisMonth}/${limit}). Your limit resets on the 1st of next month.`,
+            usage: { used: usedThisMonth, limit },
+          }),
+        }
+      }
+    }
+
     // 1. Expand industry acronyms → regulatory language, classify domain, then generate HyDE + fetch FR in parallel
     const expandedQuery = expandTerms(message)
     const queryDomain = classifyDomain(message)
@@ -675,6 +708,11 @@ export const handler: Handler = async (event) => {
       userContent,
     )
 
+    // Log usage event (fire-and-forget — don't let a logging failure block the response)
+    supabase.from('usage_events').insert({ user_id: user.id, event_type: 'chat_query' }).then(({ error }) => {
+      if (error) console.error('[usage] failed to log event:', error.message)
+    })
+
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
@@ -684,6 +722,7 @@ export const handler: Handler = async (event) => {
         lowConfidence: isLowConfidence,
         model,
         modelLabel: MODEL_CONFIGS[model].label,
+        usage: limit !== null ? { used: usedThisMonth + 1, limit } : null,
       }),
     }
   } catch (err: unknown) {

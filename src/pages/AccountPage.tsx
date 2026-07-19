@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { CreditCard, Loader2, ShieldCheck } from 'lucide-react'
+import { CreditCard, Loader2, ShieldCheck, BarChart2 } from 'lucide-react'
 import { supabase, type Subscription } from '../lib/supabase'
 import { startCheckout, openBillingPortal } from '../lib/stripe'
 import { useAuth } from '../contexts/AuthContext'
@@ -17,6 +17,7 @@ export default function AccountPage() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [finalizing, setFinalizing] = useState(params.get('checkout') === 'success')
+  const [usageData, setUsageData] = useState<{ used: number; limit: number | null } | null>(null)
 
   const fetchSubscription = async () => {
     if (!user) return
@@ -31,6 +32,18 @@ export default function AccountPage() {
 
   useEffect(() => {
     fetchSubscription().finally(() => setLoading(false))
+    if (user) {
+      Promise.all([
+        supabase.rpc('usage_this_month', { p_user_id: user.id }),
+        supabase.from('profiles').select('tier, monthly_query_limit').eq('id', user.id).single(),
+      ]).then(([usageRes, profileRes]) => {
+        const used = (usageRes.data as number) ?? 0
+        const tierName = (profileRes.data?.tier ?? 'free') as string
+        const tierLimits: Record<string, number | null> = { platform: 200, newsletter: 20, free: 5 }
+        const limit: number | null = profileRes.data?.monthly_query_limit ?? tierLimits[tierName] ?? 5
+        setUsageData({ used, limit })
+      })
+    }
   }, [user?.id])
 
   // Just back from Stripe — the webhook usually lands within a second or two,
@@ -81,6 +94,7 @@ export default function AccountPage() {
       {loading ? (
         <Spinner />
       ) : (
+        <>
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
           {finalizing && (
             <div className="flex items-center gap-2 text-sm text-indigo-600 mb-4">
@@ -136,6 +150,42 @@ export default function AccountPage() {
             )}
           </div>
         </div>
+
+        {/* Usage meter */}
+        {usageData && (
+          <div className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <BarChart2 className="w-5 h-5 text-indigo-500" />
+              <h2 className="font-medium text-gray-900">Query Usage — This Month</h2>
+            </div>
+            {usageData.limit === null ? (
+              <p className="text-sm text-gray-500">{usageData.used} queries used &mdash; unlimited plan</p>
+            ) : (
+              <>
+                <div className="flex justify-between text-sm text-gray-600 mb-2">
+                  <span>{usageData.used} of {usageData.limit} queries used</span>
+                  <span className={usageData.used / usageData.limit >= 0.9 ? 'text-red-600 font-medium' : 'text-gray-400'}>
+                    {usageData.limit - usageData.used} remaining
+                  </span>
+                </div>
+                <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${
+                      usageData.used / usageData.limit >= 0.9
+                        ? 'bg-red-500'
+                        : usageData.used / usageData.limit >= 0.7
+                        ? 'bg-amber-500'
+                        : 'bg-indigo-500'
+                    }`}
+                    style={{ width: `${Math.min(100, (usageData.used / usageData.limit) * 100)}%` }}
+                  />
+                </div>
+                <p className="text-xs text-gray-400 mt-2">Resets on the 1st of each month</p>
+              </>
+            )}
+          </div>
+        )}
+        </>
       )}
     </div>
   )
