@@ -17,3 +17,6 @@
 [functions]
   node_bundler = "esbuild"
   included_files = []
+
+[functions."chat"]
+  timeout = 60
