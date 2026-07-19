@@ -429,7 +429,12 @@ async function generateAnswer(
   if (config.provider === 'anthropic') {
     const response = await getAnthropic().messages.create({
       model,
-      system: systemPrompt,
+      // Cached as a content block (not a bare string) so the ~5K-token system
+      // prompt — byte-identical on every request — is written once and read
+      // from cache on subsequent calls instead of reprocessed at full price.
+      system: [
+        { type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } },
+      ],
       messages: [
         ...history.map(m => ({
           role: m.role === 'user' ? ('user' as const) : ('assistant' as const),
@@ -440,6 +445,8 @@ async function generateAnswer(
       max_tokens: 4096,
       temperature: 0.3,
     })
+    const u = response.usage
+    console.log(`[chat] anthropic cache: read=${u.cache_read_input_tokens ?? 0} created=${u.cache_creation_input_tokens ?? 0} input=${u.input_tokens}`)
     return response.content.find(b => b.type === 'text')?.text ?? ''
   }
 
