@@ -200,6 +200,15 @@ Under EU CTR 536/2014:
 - Reporting route: EudraVigilance electronic portal (EVCTM module).
 - Also notify all participating Member States via CTIS.
 
+FDA IND SAFETY REPORTS — 21 CFR 312.32:
+Source: 21 CFR 312.32 (Investigational New Drug Application — IND safety reporting).
+This is FDA's own framework, separate from the EU SAE/SUSAR framework above. 21 CFR 312.32 does not use the term "SUSAR" — that is ICH/EU terminology. The FDA equivalent concept is a "suspected adverse reaction" that is both serious and unexpected.
+
+Under 21 CFR 312.32(c)(1), the sponsor must notify FDA in an IND safety report:
+- Serious and unexpected suspected adverse reaction (21 CFR 312.32(c)(1)(i)): as soon as possible, but in no case later than 15 calendar days after the sponsor determines the information qualifies for reporting.
+- Unexpected fatal or life-threatening suspected adverse reaction (21 CFR 312.32(c)(1)(i)(C)): as soon as possible, but in no case later than 7 calendar days after the sponsor's initial receipt of the information.
+Each IND safety report must identify all previously-submitted IND safety reports concerning a similar suspected adverse reaction, and analyse the new event's significance in light of those prior reports.
+
 PBRER SUBMISSION SCHEDULE — ICH E2C(R2):
 Source: ICH E2C(R2) (2012), implemented in the EU via GVP Module VII.
 International Birth Date (IBD) = date of first marketing authorisation anywhere in the world. All PBRER submission dates are anchored to the IBD.
@@ -302,10 +311,23 @@ function expandTerms(query: string): string {
 // ── Query domain classification ───────────────────────────────────────────────
 // Maps incoming query to a domain tag that is used to scope retrieval to
 // relevant chunks. Returns null when the domain is ambiguous or cross-cutting.
+//
+// Checks every pattern (rather than returning on the first hit) and only
+// applies a domain filter when exactly one matches. A query like "IND safety
+// reporting requirements for suspected unexpected serious adverse reactions
+// during a clinical trial" matches pharmacovigilance ("adverse reaction"),
+// GCP ("clinical trial"), AND registration ("ind\b") simultaneously — it's a
+// genuinely cross-cutting topic (IND safety reporting sits at the boundary of
+// trial conduct and safety reporting), and picking just one via priority
+// order silently hard-filters out the other two domains' correctly-tagged
+// content. Returning null here means retrieval searches unfiltered, which is
+// what "ambiguous or cross-cutting" was always meant to do.
 function classifyDomain(query: string): string | null {
   const q = query.toLowerCase()
+  const matches: string[] = []
+
   // Pharmacovigilance / safety reporting
-  if (/\b(susar|icsr|psur|pbrer|dsur|pharmacovigilan|adverse\s+(event|reaction|effect)|signal detection|benefit.risk|rmp|pv\b|eudravigilance|cioms|safety\s+report)/i.test(q)) return 'pharmacovigilance'
+  if (/\b(susar|icsr|psur|pbrer|dsur|pharmacovigilan|adverse\s+(event|reaction|effect)|signal detection|benefit.risk|rmp|pv\b|eudravigilance|cioms|safety\s+report)/i.test(q)) matches.push('pharmacovigilance')
   // GMP / manufacturing quality
   // Note: bare "manufacturing" and bare "validation" were removed — both are
   // generic words that appear in queries about many topics that aren't
@@ -316,7 +338,7 @@ function classifyDomain(query: string): string | null {
   // 'general'-tagged ones like ICH Q9) from retrieval entirely — replaced
   // "validation" with the more specific "process valid" it was likely meant to
   // catch (cleaning validation already has its own entry below).
-  if (/\b(gmp|cleanroom|grade [abcd]\b|annex\s*1|annex\s*one|sterile|aseptic|contamination|batch\s+record|process\s+valid|cleaning\s+valid)/i.test(q)) return 'GMP'
+  if (/\b(gmp|cleanroom|grade [abcd]\b|annex\s*1|annex\s*one|sterile|aseptic|contamination|batch\s+record|process\s+valid|cleaning\s+valid)/i.test(q)) matches.push('GMP')
   // GCP / clinical trials
   // Note: bare "investigat" (investigation/investigator), bare "monitoring",
   // and bare "protocol" were removed — all three are generic words used just
@@ -324,7 +346,7 @@ function classifyDomain(query: string): string | null {
   // environmental/quality monitoring (GMP, Q10 PQS), and CMC/lab validation
   // protocols. Replaced with the more specific clinical-trial phrasing they
   // were likely meant to catch.
-  if (/\b(gcp|clinical\s+trial|trial\s+protocol|investigator\s+brochure|principal\s+investigator|ich\s+e\d|e6\(r[23]\)|cra\b|clinical\s+monitoring|centralized\s+monitoring|on-site\s+monitoring|randomis|irt\b|rtsm|etmf|ctms|rbqm|rbm\b|sdv\b|qtl\b)/i.test(q)) return 'GCP'
+  if (/\b(gcp|clinical\s+trial|trial\s+protocol|investigator\s+brochure|principal\s+investigator|ich\s+e\d|e6\(r[23]\)|cra\b|clinical\s+monitoring|centralized\s+monitoring|on-site\s+monitoring|randomis|irt\b|rtsm|etmf|ctms|rbqm|rbm\b|sdv\b|qtl\b)/i.test(q)) matches.push('GCP')
   // CMC / chemistry manufacturing controls
   // Note: bare "specification", "analytical", "drug substance", and "drug
   // product" were removed. "Drug substance"/"drug product" in particular are
@@ -334,16 +356,17 @@ function classifyDomain(query: string): string | null {
   // from every other domain. The remaining terms (cmc, stability, method
   // valid, impurities, excipient, container closure) are specific enough on
   // their own to identify genuine CMC queries.
-  if (/\b(cmc\b|stability|method\s+valid|impurit|excipient|container\s+closure)/i.test(q)) return 'CMC'
+  if (/\b(cmc\b|stability|method\s+valid|impurit|excipient|container\s+closure)/i.test(q)) matches.push('CMC')
   // Registration / submissions
   // Note: bare "submission" was removed — REMS and PBRER/PSUR (pharmacovigilance)
   // documents also discuss "submission" timelines constantly, so it forced
   // those queries into 'registration' instead. The remaining acronyms/terms
   // are specific enough to identify genuine registration queries.
-  if (/\b(nda\b|bla\b|anda\b|ind\b|maa\b|cta\b|ectd|ctd\b|dossier|type i[ab]\b|type ii\b|variation|orphan|breakthrough|prime\b|fast\s+track)/i.test(q)) return 'registration'
+  if (/\b(nda\b|bla\b|anda\b|ind\b|maa\b|cta\b|ectd|ctd\b|dossier|type i[ab]\b|type ii\b|variation|orphan|breakthrough|prime\b|fast\s+track)/i.test(q)) matches.push('registration')
   // GDP / wholesale distribution & supply chain
-  if (/\b(gdp\b|good\s+distribution\s+practice|wholesale\s+distribut|distribution\s+authoris|parallel\s+distribut|drug\s+wholesal|cold\s+chain|temperature[- ]control(led)?\s+(storage|transport|distribut))/i.test(q)) return 'distribution'
-  return null // cross-cutting — do not filter
+  if (/\b(gdp\b|good\s+distribution\s+practice|wholesale\s+distribut|distribution\s+authoris|parallel\s+distribut|drug\s+wholesal|cold\s+chain|temperature[- ]control(led)?\s+(storage|transport|distribut))/i.test(q)) matches.push('distribution')
+
+  return matches.length === 1 ? matches[0] : null // 0 or 2+ matches — cross-cutting, do not filter
 }
 
 // HyDE: generate a short hypothetical regulatory document excerpt to improve retrieval

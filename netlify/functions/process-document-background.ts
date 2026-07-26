@@ -112,7 +112,13 @@ interface ChunkMetadata {
 }
 
 function inferMetadata(docName: string): ChunkMetadata {
-  const n = docName.toUpperCase()
+  // Filenames use underscores, hyphens, and parentheses as word separators far
+  // more often than literal spaces (e.g. "ICH_E8-R1_Guideline_Step4...pdf",
+  // "guideline-computerised-systems-and-electronic-data-clinical-trials_en.pdf").
+  // The classifiers below were written assuming space-separated words (\s*/\s+
+  // gaps in the regexes), so normalize those separators to spaces first — this
+  // only ever adds matches (never removes an existing space-based match).
+  const n = docName.toUpperCase().replace(/[_\-()]/g, ' ')
 
   // issuing_body
   let issuing_body = 'unknown'
@@ -127,7 +133,14 @@ function inferMetadata(docName: string): ChunkMetadata {
   // domain[]
   const domain: string[] = []
   if (/\bGMP\b|GMP\s*ANNEX|CLEANROOM|EudraLex.*VOL.?4/.test(n)) domain.push('GMP')
-  if (/\bGCP\b|ICH\s*E\d|CLINICAL\s*TRIAL|CTR\b/.test(n)) domain.push('GCP')
+  // Many ICH E-series guideline filenames omit the "ICH" prefix entirely
+  // (e.g. "E3_Guideline.pdf", "E17EWG_Step4_2017_1116.pdf") — match a bare
+  // "E<1-2 digits>" token (with an optional short letter suffix, e.g. the "A"
+  // in E11A or "EWG" in E17EWG) in addition to the ICH-prefixed form. The
+  // leading/trailing \b plus requiring a digit immediately after "E" keeps
+  // this from matching unrelated words (no letter is immediately followed by
+  // a digit at a word boundary in ordinary English).
+  if (/\bGCP\b|ICH\s*E\d|CLINICAL\s*TRIAL|CTR\b|\bE\d{1,2}(?:[A-Z]{1,3})?\b/.test(n)) domain.push('GCP')
   if (/\bGVP\b|PHARMACOVIGILANCE|ADVERSE\s*REACTION|PSUR|PBRER|SUSAR|CIOMS/.test(n)) domain.push('pharmacovigilance')
   if (/\bCMC\b|CHEMISTRY|MANUFACTURING|CONTROL/.test(n)) domain.push('CMC')
   if (/REGISTRATION|MAA\b|NDA\b|BLA\b|VARIATION|DOSSIER/.test(n)) domain.push('registration')
