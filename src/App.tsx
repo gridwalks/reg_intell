@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAuth } from './contexts/AuthContext'
 import Layout from './components/Layout'
 import AuthPage from './pages/AuthPage'
+import HomePage from './pages/HomePage'
 import DashboardPage from './pages/DashboardPage'
 import DocumentsPage from './pages/DocumentsPage'
 import ChatPage from './pages/ChatPage'
@@ -64,11 +65,13 @@ export default function App() {
 
   return (
     <Routes>
+      <Route index element={user ? <Navigate to="/query" replace /> : <HomePage />} />
       <Route path="/auth" element={user ? <Navigate to="/query" replace /> : <AuthPage />} />
 
       {/* Protected app shell */}
       <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         <Route index element={<Navigate to="/query" replace />} />
+
 
         {/* Platform tier only */}
         <Route path="/query" element={<PlatformRoute><ChatPage /></PlatformRoute>} />
